@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv tool:*)",
+      "Bash(specify init:*)",
+      "Bash(PYTHONUTF8=1 specify init)",
+      "Bash(PYTHONUTF8=1 specify init .)",
+      "Bash(PYTHONUTF8=1 specify init --help)",
+      "Bash(PYTHONUTF8=1 specify init --here --ai claude --ai-skills --force)",
+      "Bash(taskkill /F /IM python.exe)",
+      "Bash(taskkill /F /IM specify.exe)",
+      "Bash(PYTHONUTF8=1 specify init --here --ai claude --ai-skills --force --offline)",
+      "Bash(PYTHONUTF8=1 specify init --here --ai claude --ai-skills --force --offline --script-type ps)",
+      "Bash(PYTHONUTF8=1 specify init --here --ai claude --ai-skills --force --offline --script ps)",
+      "Bash(PYTHONUTF8=1 specify init --here --ai claude --ai-skills --force --script ps)"
+    ]
+  }
+}
