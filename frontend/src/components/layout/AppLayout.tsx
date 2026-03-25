@@ -1,103 +1,180 @@
-import { type ReactNode } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-interface AppLayoutProps { children: ReactNode }
+const navItems = [
+  { to: '/dashboard', icon: '🏠', label: 'หน้าหลัก' },
+  { to: '/courses', icon: '🎓', label: 'คอร์สเรียน' },
+  { to: '/certificates', icon: '🏆', label: 'ใบประกาศ' },
+];
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
-  const navItems = [
-    { to: '/dashboard', icon: '📊', label: 'Dashboard' },
-    { to: '/courses', icon: '🎓', label: 'คอร์สเรียน' },
-    { to: '/certificates', icon: '🏆', label: 'ใบประกาศ' },
-    ...(user?.role === 'ADMIN' ? [{ to: '/admin', icon: '⚙️', label: 'Admin' }] : []),
+  const allNav = [
+    ...navItems,
+    ...(user?.role === 'ADMIN' ? [{ to: '/admin', icon: '⚙️', label: 'Admin Panel' }] : []),
   ];
 
   return (
-    <div className="min-h-screen" style={{ position: 'relative' }}>
-      {/* Animated background orbs */}
-      <div className="bg-orbs">
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="orb orb-3" />
-        <div className="orb orb-4" />
-      </div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      {/* ── TOP NAVBAR ── */}
+      <nav className="navbar">
+        <div className="navbar-inner">
+          {/* Mobile hamburger */}
+          <button
+            className="mobile-hamburger"
+            onClick={() => setMobileOpen(true)}
+            aria-label="เปิดเมนู"
+          >
+            ☰
+          </button>
 
-      {/* Content */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* Header */}
-        <header className="sticky top-0 z-50 px-6 pt-6 pb-3 animate-[slideDown_0.6s_ease]">
-          <div className="glass-card max-w-7xl mx-auto px-8 py-5 flex items-center justify-between gap-6">
-            {/* Brand */}
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                style={{ background: 'var(--gradient-primary)', boxShadow: '0 8px 32px rgba(123,104,238,0.5)', animation: 'pulse 3s ease-in-out infinite' }}
-              >
-                🏥
-              </div>
-              <div>
-                <h1 className="text-xl font-extrabold" style={{ background: 'linear-gradient(135deg, #4A3F7A 0%, #7B68EE 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  รพ.สต. Learning Hub
-                </h1>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>แพลตฟอร์มสื่อการสอนออนไลน์</p>
-              </div>
+          {/* Logo */}
+          <Link to="/dashboard" className="navbar-logo">
+            <div className="navbar-logo-icon">🏥</div>
+            <div className="navbar-logo-text">
+              <span className="navbar-logo-title">รพ.สต. Learning Hub</span>
+              <span className="navbar-logo-sub">แพลตฟอร์มสื่อการสอนออนไลน์</span>
             </div>
+          </Link>
 
-            {/* Nav pills */}
-            <nav className="hidden md:flex items-center gap-2">
-              {navItems.map((item) => {
-                const active = pathname.startsWith(item.to);
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300"
-                    style={active
-                      ? { background: 'var(--gradient-primary)', color: 'white', boxShadow: '0 4px 16px rgba(123,104,238,0.4)' }
-                      : { color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.5)' }
-                    }
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+          {/* Desktop Nav links */}
+          <nav className="navbar-links">
+            {allNav.map((item) => {
+              const active = pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`navbar-link ${active ? 'active' : ''}`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
 
-            {/* User + Logout */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(123,104,238,0.2)' }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: 'var(--gradient-primary)' }}>
-                  {user?.name?.charAt(0) ?? 'U'}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่'}</p>
-                </div>
+          {/* User area */}
+          <div className="navbar-user">
+            <div className="navbar-avatar" title={user?.name}>
+              {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
+            </div>
+            <span className="navbar-user-name">{user?.name}</span>
+            <button data-testid="logout-button" className="navbar-logout" onClick={handleLogout}>
+              ออกจากระบบ
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── MOBILE DRAWER ── */}
+      <div className={`mobile-drawer ${mobileOpen ? 'open' : ''}`}>
+        <div className="mobile-drawer-overlay" onClick={() => setMobileOpen(false)} />
+        <div className="mobile-drawer-panel">
+          {/* Logo */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '0 6px 20px',
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 8,
+            }}
+          >
+            <div
+              className="navbar-logo-icon"
+              style={{ width: 36, height: 36, borderRadius: 10, fontSize: 16 }}
+            >
+              🏥
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                รพ.สต. Learning Hub
               </div>
-              <button
-                data-testid="logout-button"
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5"
-                style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)' }}
-              >
-                ออกจากระบบ
-              </button>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                แพลตฟอร์มสื่อการสอนออนไลน์
+              </div>
             </div>
           </div>
-        </header>
 
-        {/* Page content */}
-        <main className="max-w-7xl mx-auto px-6 py-6 animate-[fadeUp_0.6s_ease]">
-          {children}
-        </main>
+          {allNav.map((item) => {
+            const active = pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`mobile-nav-link ${active ? 'active' : ''}`}
+                onClick={() => setMobileOpen(false)}
+              >
+                <span style={{ fontSize: 18 }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* User info */}
+          <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 14px',
+                borderRadius: 12,
+                background: 'var(--bg)',
+                marginBottom: 8,
+              }}
+            >
+              <div className="navbar-avatar" style={{ width: 32, height: 32, fontSize: 13 }}>
+                {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {user?.name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ รพ.สต.'}
+                </div>
+              </div>
+            </div>
+            <button
+              data-testid="logout-button-mobile"
+              onClick={() => {
+                setMobileOpen(false);
+                handleLogout();
+              }}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: 10,
+                border: '1px solid rgba(239,68,68,0.2)',
+                background: 'rgba(239,68,68,0.06)',
+                color: '#DC2626',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              ออกจากระบบ
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* ── PAGE CONTENT ── */}
+      <main className="page-wrapper anim-in">{children}</main>
     </div>
   );
 }

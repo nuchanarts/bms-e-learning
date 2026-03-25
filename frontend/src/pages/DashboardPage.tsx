@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../lib/api';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 interface DashboardData {
   totalCourses: number;
@@ -18,11 +17,16 @@ interface DashboardData {
   }>;
 }
 
-const statCards = [
-  { key: 'totalCourses', label: 'คอร์สทั้งหมด', icon: '📚', color: '#7B68EE' },
-  { key: 'completedCourses', label: 'เรียนจบแล้ว', icon: '✅', color: '#4CAF50' },
-  { key: 'inProgressCourses', label: 'กำลังเรียน', icon: '▶️', color: '#FFA726' },
+const THUMBS = [
+  'linear-gradient(135deg,#7B68EE,#9B8FFF)',
+  'linear-gradient(135deg,#EC4899,#F9A8D4)',
+  'linear-gradient(135deg,#10B981,#34D399)',
+  'linear-gradient(135deg,#F59E0B,#FCD34D)',
+  'linear-gradient(135deg,#3B82F6,#93C5FD)',
+  'linear-gradient(135deg,#8B5CF6,#C4B5FD)',
 ];
+
+const ICONS = ['💊', '🩺', '🏥', '🧬', '💉', '🩻', '🏃', '🍎'];
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -30,94 +34,224 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<DashboardData>('/dashboard')
-      .then(r => setData(r.data))
+    api
+      .get<DashboardData>('/dashboard')
+      .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>;
+  if (loading) {
+    return (
+      <div
+        style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}
+      >
+        <div className="spinner spinner-lg" />
+      </div>
+    );
+  }
+
+  const stats = [
+    {
+      label: 'คอร์สทั้งหมด',
+      value: data?.totalCourses ?? 0,
+      icon: '📚',
+      color: '#7B68EE',
+      bar: 'linear-gradient(90deg,#7B68EE,#9B8FFF)',
+    },
+    {
+      label: 'เรียนจบแล้ว',
+      value: data?.completedCourses ?? 0,
+      icon: '✅',
+      color: '#10B981',
+      bar: 'linear-gradient(90deg,#10B981,#34D399)',
+    },
+    {
+      label: 'กำลังเรียน',
+      value: data?.inProgressCourses ?? 0,
+      icon: '▶️',
+      color: '#F59E0B',
+      bar: 'linear-gradient(90deg,#F59E0B,#FCD34D)',
+    },
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Welcome banner */}
-      <div className="glass-card p-8 animate-[fadeUp_0.5s_ease]">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>ยินดีต้อนรับ 👋</p>
-            <h2 className="text-3xl font-extrabold" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              {user?.name}
-            </h2>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-              {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ รพ.สต.'} — มาเรียนรู้ต่อกันเลย!
-            </p>
+    <div className="anim-up">
+      {/* ─── Hero Banner ─── */}
+      <div className="hero-banner">
+        <div className="hero-content">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 20,
+            }}
+          >
+            <div>
+              <p className="hero-greeting">ยินดีต้อนรับกลับ 👋</p>
+              <h2 className="hero-name">{user?.name}</h2>
+              <p className="hero-sub">
+                {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ รพ.สต.'} —
+                มาเรียนรู้ต่อกันเลย!
+              </p>
+              <Link to="/courses" className="hero-btn">
+                🎓 ดูคอร์สทั้งหมด
+              </Link>
+            </div>
+            {/* Progress ring display */}
+            {data && data.totalCourses > 0 && (
+              <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto 8px' }}>
+                  <svg width="80" height="80" viewBox="0 0 80 80">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="32"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.15)"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="32"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.85)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 32}`}
+                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - data.completedCourses / data.totalCourses)}`}
+                      style={{
+                        transform: 'rotate(-90deg)',
+                        transformOrigin: '40px 40px',
+                        transition: 'stroke-dashoffset 1s ease',
+                      }}
+                    />
+                  </svg>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    <span style={{ fontSize: 16, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                      {Math.round((data.completedCourses / data.totalCourses) * 100)}%
+                    </span>
+                  </div>
+                </div>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                  ความคืบหน้า
+                </p>
+              </div>
+            )}
           </div>
-          <Link to="/courses">
-            <button className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-semibold transition-all duration-300 hover:-translate-y-1"
-              style={{ background: 'var(--gradient-primary)', boxShadow: '0 8px 24px rgba(123,104,238,0.5)' }}>
-              <span>🎓</span> ดูคอร์สทั้งหมด
-            </button>
-          </Link>
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {statCards.map(({ key, label, icon, color }, i) => (
-          <div key={key}
-            className="glass-card p-8 relative overflow-hidden transition-all duration-500 hover:-translate-y-3 hover:scale-[1.02] cursor-default"
-            style={{ animationDelay: `${i * 0.1}s` }}>
-            <div className="absolute inset-x-0 top-0 h-1 rounded-t-3xl" style={{ background: `linear-gradient(90deg, ${color}, ${color}88)` }} />
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
-            <p className="text-5xl font-extrabold" style={{ background: `linear-gradient(135deg, #4A3F7A, ${color})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              {data ? (data as any)[key] : 0}
-            </p>
-            <span className="absolute bottom-4 right-4 text-5xl opacity-10 select-none">{icon}</span>
+      {/* ─── Stat Cards ─── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 16,
+          marginBottom: 32,
+        }}
+      >
+        {stats.map((s) => (
+          <div className="stat-card" key={s.label}>
+            <div className="stat-card-bar" style={{ background: s.bar }} />
+            <div className="stat-card-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div
+              className="stat-value"
+              style={{
+                background: s.bar,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              {s.value}
+            </div>
+            <div className="stat-sub">คอร์ส</div>
           </div>
         ))}
       </div>
 
-      {/* Course progress */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>ความคืบหน้าการเรียน</h3>
-          <Link to="/courses" className="text-sm font-semibold hover:underline" style={{ color: '#7B68EE' }}>ดูทั้งหมด →</Link>
-        </div>
-
-        {!data || data.courses.length === 0 ? (
-          <div className="glass-card p-12 text-center">
-            <p className="text-5xl mb-4">📚</p>
-            <p className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>ยังไม่มีคอร์สในระบบ</p>
-            <Link to="/courses" className="text-sm" style={{ color: '#7B68EE' }}>เริ่มเรียนคอร์สแรกของคุณ →</Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {data.courses.map((course) => (
-              <Link key={course.id} to={`/courses/${course.id}`}>
-                <div className="glass-card p-6 transition-all duration-400 hover:-translate-y-2 hover:shadow-[0_16px_40px_rgba(123,104,238,0.2)] cursor-pointer h-full">
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="font-bold text-base leading-snug flex-1 pr-2" style={{ color: 'var(--text-primary)' }}>{course.title}</h4>
-                    {course.isCompleted && (
-                      <span className="flex-shrink-0 text-xs px-2 py-1 rounded-full font-semibold"
-                        style={{ background: 'rgba(76,175,80,0.1)', color: '#4CAF50', border: '1px solid rgba(76,175,80,0.3)' }}>
-                        ✅ จบแล้ว
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
-                    {course.completedVideos}/{course.totalVideos} วิดีโอ
-                  </p>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(123,104,238,0.1)' }}>
-                    <div className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${course.progressPercent}%`, background: course.isCompleted ? 'var(--gradient-success)' : 'var(--gradient-primary)' }} />
-                  </div>
-                  <p className="text-xs mt-2 text-right font-semibold" style={{ color: 'var(--text-tertiary)' }}>{course.progressPercent}%</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+      {/* ─── My Courses ─── */}
+      <div className="section-header">
+        <h3 className="section-title">📖 คอร์สที่กำลังเรียน</h3>
+        <Link to="/courses" className="section-link">
+          ดูทั้งหมด →
+        </Link>
       </div>
+
+      {!data || data.courses.length === 0 ? (
+        <div className="card" style={{ padding: '40px 24px' }}>
+          <div className="empty-state">
+            <div className="empty-state-icon">📚</div>
+            <div className="empty-state-title">ยังไม่มีคอร์สในระบบ</div>
+            <div className="empty-state-sub">เริ่มเรียนคอร์สแรกของคุณ</div>
+            <Link
+              to="/courses"
+              className="btn-primary"
+              style={{ display: 'inline-flex', marginTop: 20 }}
+            >
+              เริ่มเรียนเลย
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {data.courses.map((course, i) => (
+            <Link key={course.id} to={`/courses/${course.id}`} className="course-card">
+              <div className="course-thumb" style={{ background: THUMBS[i % THUMBS.length] }}>
+                <span className="course-thumb-icon" style={{ fontSize: 44 }}>
+                  {ICONS[i % ICONS.length]}
+                </span>
+              </div>
+              <div className="course-body">
+                <div className="course-title">{course.title}</div>
+                <div className="course-meta">
+                  <span className="course-videos">
+                    ✅ {course.completedVideos}/{course.totalVideos} บท
+                  </span>
+                  {course.isCompleted ? (
+                    <span className="badge badge-green">จบแล้ว</span>
+                  ) : (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>
+                      {course.progressPercent}%
+                    </span>
+                  )}
+                </div>
+                <div className="course-progress-bar" style={{ marginTop: 10 }}>
+                  <div
+                    className="course-progress-fill"
+                    style={{
+                      width: `${course.progressPercent}%`,
+                      background: course.isCompleted
+                        ? 'linear-gradient(90deg,#10B981,#34D399)'
+                        : 'linear-gradient(90deg,#7B68EE,#9B8FFF)',
+                    }}
+                  />
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
