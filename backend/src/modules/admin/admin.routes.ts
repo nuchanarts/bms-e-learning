@@ -11,5 +11,6 @@ router.put('/courses/:id', adminController.updateCourse);
 router.delete('/courses/:id', adminController.deleteCourse);
 router.post('/courses/:courseId/videos', adminController.addVideo);
 router.delete('/videos/:videoId', adminController.deleteVideo);
+router.post('/export/sheets', adminController.exportSheets);
 
 export default router;
