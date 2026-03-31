@@ -15,6 +15,7 @@ router.delete('/courses/:id', adminController.deleteCourse);
 
 // Videos
 router.post('/courses/:courseId/videos', adminController.addVideo);
+router.put('/videos/:videoId', adminController.updateVideo);
 router.delete('/videos/:videoId', adminController.deleteVideo);
 
 // Quiz

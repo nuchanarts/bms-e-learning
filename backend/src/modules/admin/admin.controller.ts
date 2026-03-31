@@ -59,6 +59,14 @@ export const adminController = {
     }
   },
 
+  async updateVideo(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.updateVideo(req.params.videoId, req.body));
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async deleteVideo(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       await adminService.deleteVideo(req.params.videoId);

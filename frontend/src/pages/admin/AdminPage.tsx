@@ -92,6 +92,14 @@ export default function AdminPage() {
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
   const [videoForm, setVideoForm] = useState({ title: '', url: '', duration: '', order: '' });
   const [savingVideo, setSavingVideo] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editVideoForm, setEditVideoForm] = useState({
+    title: '',
+    url: '',
+    duration: '',
+    order: '',
+  });
+  const [savingEditVideo, setSavingEditVideo] = useState(false);
 
   // Document management
   const [docForm, setDocForm] = useState({ title: '', url: '', order: '' });
@@ -299,6 +307,36 @@ export default function AdminPage() {
     if (!confirm('ต้องการลบวิดีโอนี้?')) return;
     await api.delete(`/admin/videos/${videoId}`);
     await loadData();
+  };
+
+  const handleStartEditVideo = (v: Video) => {
+    setEditingVideoId(v.id);
+    setEditVideoForm({
+      title: v.title,
+      url: v.url,
+      duration: String(v.duration),
+      order: String(v.order),
+    });
+  };
+
+  const handleSaveEditVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVideoId) return;
+    setSavingEditVideo(true);
+    try {
+      await api.put(`/admin/videos/${editingVideoId}`, {
+        title: editVideoForm.title,
+        url: editVideoForm.url,
+        duration: parseInt(editVideoForm.duration) || 0,
+        order: parseInt(editVideoForm.order) || 1,
+      });
+      setEditingVideoId(null);
+      await loadData();
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingEditVideo(false);
+    }
   };
 
   const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
@@ -893,57 +931,187 @@ export default function AdminPage() {
                           }}
                         >
                           {c.videos?.map((v) => (
-                            <div
-                              key={v.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                padding: '6px 10px',
-                                borderRadius: 8,
-                                background: 'var(--surface)',
-                                border: '1px solid var(--border)',
-                              }}
-                            >
-                              <span
-                                style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 18 }}
-                              >
-                                {v.order}.
-                              </span>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div
+                            <div key={v.id}>
+                              {editingVideoId === v.id ? (
+                                /* ── Inline edit form ── */
+                                <form
+                                  onSubmit={handleSaveEditVideo}
                                   style={{
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    color: 'var(--text-primary)',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
+                                    padding: '10px 12px',
+                                    borderRadius: 8,
+                                    background: '#EDE9FE',
+                                    border: '1px solid var(--primary)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 6,
                                   }}
                                 >
-                                  {v.title}
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: 'var(--primary)',
+                                      marginBottom: 2,
+                                    }}
+                                  >
+                                    ✏️ แก้ไขวิดีโอ
+                                  </div>
+                                  <input
+                                    className="form-input"
+                                    placeholder="ชื่อวิดีโอ"
+                                    value={editVideoForm.title}
+                                    onChange={(e) =>
+                                      setEditVideoForm((f) => ({ ...f, title: e.target.value }))
+                                    }
+                                    required
+                                    style={{ fontSize: 12, padding: '7px 10px' }}
+                                  />
+                                  <input
+                                    className="form-input"
+                                    placeholder="URL วิดีโอ"
+                                    value={editVideoForm.url}
+                                    onChange={(e) =>
+                                      setEditVideoForm((f) => ({ ...f, url: e.target.value }))
+                                    }
+                                    required
+                                    style={{ fontSize: 12, padding: '7px 10px' }}
+                                  />
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <input
+                                      className="form-input"
+                                      type="number"
+                                      placeholder="ความยาว (วินาที)"
+                                      value={editVideoForm.duration}
+                                      onChange={(e) =>
+                                        setEditVideoForm((f) => ({
+                                          ...f,
+                                          duration: e.target.value,
+                                        }))
+                                      }
+                                      required
+                                      min={1}
+                                      style={{ fontSize: 12, padding: '7px 10px', flex: 1 }}
+                                    />
+                                    <input
+                                      className="form-input"
+                                      type="number"
+                                      placeholder="ลำดับ"
+                                      value={editVideoForm.order}
+                                      onChange={(e) =>
+                                        setEditVideoForm((f) => ({ ...f, order: e.target.value }))
+                                      }
+                                      required
+                                      min={1}
+                                      style={{ fontSize: 12, padding: '7px 10px', width: 70 }}
+                                    />
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <button
+                                      type="submit"
+                                      className="btn-primary"
+                                      disabled={savingEditVideo}
+                                      style={{ fontSize: 12, padding: '6px 14px', flex: 1 }}
+                                    >
+                                      {savingEditVideo ? 'กำลังบันทึก...' : '💾 บันทึก'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingVideoId(null)}
+                                      className="btn-secondary"
+                                      style={{ fontSize: 12, padding: '6px 12px' }}
+                                    >
+                                      ยกเลิก
+                                    </button>
+                                  </div>
+                                </form>
+                              ) : (
+                                /* ── Display row ── */
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '6px 10px',
+                                    borderRadius: 8,
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border)',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: 11,
+                                      color: 'var(--text-muted)',
+                                      minWidth: 18,
+                                    }}
+                                  >
+                                    {v.order}.
+                                  </span>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div
+                                      style={{
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        color: 'var(--text-primary)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {v.title}
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: 10,
+                                        color: 'var(--text-muted)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {Math.floor(v.duration / 60)} นาที {v.duration % 60} วินาที
+                                      {v.url && (
+                                        <span style={{ marginLeft: 6, opacity: 0.7 }}>
+                                          · {v.url}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleStartEditVideo(v)}
+                                    style={{
+                                      padding: '3px 8px',
+                                      borderRadius: 6,
+                                      border: '1px solid rgba(123,104,238,0.25)',
+                                      background: 'rgba(123,104,238,0.06)',
+                                      color: 'var(--primary)',
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      fontFamily: 'inherit',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    แก้ไข
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteVideo(v.id)}
+                                    style={{
+                                      padding: '3px 8px',
+                                      borderRadius: 6,
+                                      border: '1px solid rgba(239,68,68,0.2)',
+                                      background: 'rgba(239,68,68,0.06)',
+                                      color: '#DC2626',
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      fontFamily: 'inherit',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    ลบ
+                                  </button>
                                 </div>
-                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                  {Math.floor(v.duration / 60)} นาที {v.duration % 60} วินาที
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => handleDeleteVideo(v.id)}
-                                style={{
-                                  padding: '3px 8px',
-                                  borderRadius: 6,
-                                  border: '1px solid rgba(239,68,68,0.2)',
-                                  background: 'rgba(239,68,68,0.06)',
-                                  color: '#DC2626',
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  fontFamily: 'inherit',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                ลบ
-                              </button>
+                              )}
                             </div>
                           ))}
                         </div>

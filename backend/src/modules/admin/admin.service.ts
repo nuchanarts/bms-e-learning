@@ -104,6 +104,13 @@ export const adminService = {
     return prisma.video.create({ data: { courseId, ...data } });
   },
 
+  async updateVideo(
+    id: string,
+    data: { title?: string; url?: string; duration?: number; order?: number },
+  ) {
+    return prisma.video.update({ where: { id }, data });
+  },
+
   async deleteVideo(id: string) {
     return prisma.video.delete({ where: { id } });
   },
