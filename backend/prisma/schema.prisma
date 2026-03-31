@@ -62,6 +62,7 @@ model Video {
   url       String     @db.VarChar(512)
   duration  Int
   order     Int
+  section   String?    @db.VarChar(100)
   createdAt DateTime   @default(now())
   course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progress  Progress[]

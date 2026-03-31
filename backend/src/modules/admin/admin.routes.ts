@@ -28,6 +28,10 @@ router.delete('/quiz/:questionId', adminController.deleteQuizQuestion);
 router.post('/courses/:courseId/documents', adminController.addDocument);
 router.delete('/documents/:documentId', adminController.deleteDocument);
 
+// Users
+router.get('/users', adminController.listUsers);
+router.put('/users/:userId/role', adminController.updateUserRole);
+
 // Export
 router.post('/export/sheets', adminController.exportSheets);
 router.get('/export/excel', adminController.exportExcel);

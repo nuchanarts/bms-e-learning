@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { onlineTracker } from '../lib/onlineTracker';
 
 export interface AuthRequest extends Request {
   user?: { id: string; email: string; role: string };
@@ -12,6 +13,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
     req.user = decoded;
+    onlineTracker.touch(decoded.id);
     next();
   } catch {
     return res.status(401).json({ message: 'Invalid token' });

@@ -99,14 +99,14 @@ export const adminService = {
 
   async addVideo(
     courseId: string,
-    data: { title: string; url: string; duration: number; order: number },
+    data: { title: string; url: string; duration: number; order: number; section?: string },
   ) {
     return prisma.video.create({ data: { courseId, ...data } });
   },
 
   async updateVideo(
     id: string,
-    data: { title?: string; url?: string; duration?: number; order?: number },
+    data: { title?: string; url?: string; duration?: number; order?: number; section?: string },
   ) {
     return prisma.video.update({ where: { id }, data });
   },
@@ -161,5 +161,36 @@ export const adminService = {
 
   async deleteDocument(id: string) {
     return prisma.courseDocument.delete({ where: { id } });
+  },
+
+  // User management
+  async getUsers(search?: string) {
+    return prisma.user.findMany({
+      where: search
+        ? {
+            OR: [
+              { name: { contains: search } },
+              { email: { contains: search } },
+              { hospital: { contains: search } },
+            ],
+          }
+        : undefined,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        cid: true,
+        hospital: true,
+        position: true,
+        createdAt: true,
+        _count: { select: { certificates: true, progress: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async updateUserRole(userId: string, role: 'USER' | 'ADMIN') {
+    return prisma.user.update({ where: { id: userId }, data: { role } });
   },
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { courseService, type Course, type Video } from '../../services/courseService';
 import { progressService, type ProgressRecord } from '../../services/progressService';
@@ -18,6 +18,7 @@ export default function CourseDetailPage() {
   const [courseCompleted, setCourseCompleted] = useState(false);
   const [quizPassed, setQuizPassed] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -81,6 +82,25 @@ export default function CourseDetailPage() {
   const getVP = (vid: string) => progress.find((p) => p.videoId === vid);
   const completedCount = progress.filter((p) => p.completed).length;
   const totalVideos = course.videos.length;
+
+  // Sections derived from videos
+  const sections = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const v of course.videos) {
+      if (v.section && !seen.has(v.section)) {
+        seen.add(v.section);
+        result.push(v.section);
+      }
+    }
+    return result;
+  }, [course.videos]);
+
+  const filteredVideos = useMemo(
+    () =>
+      activeSection ? course.videos.filter((v) => v.section === activeSection) : course.videos,
+    [course.videos, activeSection],
+  );
   const overallPercent = totalVideos > 0 ? Math.round((completedCount / totalVideos) * 100) : 0;
 
   return (
@@ -359,12 +379,54 @@ export default function CourseDetailPage() {
                 fontSize: 14,
                 fontWeight: 700,
                 color: 'var(--text-primary)',
-                marginBottom: 12,
+                marginBottom: 10,
                 padding: '0 4px',
               }}
             >
               📋 รายการวิดีโอ ({totalVideos})
             </h3>
+
+            {/* Section filter buttons */}
+            {sections.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                <button
+                  onClick={() => setActiveSection(null)}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 12,
+                    border: `1px solid ${activeSection === null ? 'var(--primary)' : 'var(--border)'}`,
+                    background: activeSection === null ? 'var(--primary)' : 'transparent',
+                    color: activeSection === null ? '#fff' : 'var(--text-muted)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  ทั้งหมด
+                </button>
+                {sections.map((sec) => (
+                  <button
+                    key={sec}
+                    onClick={() => setActiveSection(sec)}
+                    style={{
+                      padding: '3px 10px',
+                      borderRadius: 12,
+                      border: `1px solid ${activeSection === sec ? 'var(--primary)' : 'var(--border)'}`,
+                      background: activeSection === sec ? 'var(--primary)' : 'transparent',
+                      color: activeSection === sec ? '#fff' : 'var(--text-muted)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {sec}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div
               style={{
                 display: 'flex',
@@ -374,57 +436,75 @@ export default function CourseDetailPage() {
                 overflowY: 'auto',
               }}
             >
-              {course.videos.map((video, idx) => {
+              {filteredVideos.map((video, idx) => {
                 const vp = getVP(video.id);
                 const isActive = selectedVideo?.id === video.id;
+                // Show section header when it changes
+                const prevSection = idx > 0 ? filteredVideos[idx - 1].section : undefined;
+                const showSectionHeader = video.section && video.section !== prevSection;
                 return (
-                  <button
-                    key={video.id}
-                    onClick={() => setSelectedVideo(video)}
-                    className={`playlist-item ${isActive ? 'active' : ''}`}
-                    data-testid="video-item"
-                  >
-                    <div
-                      className="playlist-num"
-                      style={
-                        vp?.completed
-                          ? { background: '#DCFCE7', color: '#16A34A' }
-                          : isActive
-                            ? { background: 'var(--primary-light)', color: 'var(--primary)' }
-                            : {
-                                background: 'var(--bg)',
-                                color: 'var(--text-muted)',
-                                border: '1px solid var(--border)',
-                              }
-                      }
-                    >
-                      {vp?.completed ? '✓' : idx + 1}
-                    </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div key={video.id}>
+                    {showSectionHeader && (
                       <div
                         style={{
-                          fontSize: 13,
-                          fontWeight: isActive ? 700 : 500,
-                          color: 'var(--text-primary)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          padding: '8px 4px 4px',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: 'var(--primary)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
                         }}
                       >
-                        {video.title}
+                        {video.section}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {Math.floor(video.duration / 60)} นาที
-                      </div>
-                    </div>
-                    {vp?.completed && (
-                      <span
-                        style={{ fontSize: 11, color: '#16A34A', fontWeight: 700, flexShrink: 0 }}
-                      >
-                        ✓
-                      </span>
                     )}
-                  </button>
+                    <button
+                      onClick={() => setSelectedVideo(video)}
+                      className={`playlist-item ${isActive ? 'active' : ''}`}
+                      data-testid="video-item"
+                    >
+                      <div
+                        className="playlist-num"
+                        style={
+                          vp?.completed
+                            ? { background: '#DCFCE7', color: '#16A34A' }
+                            : isActive
+                              ? { background: 'var(--primary-light)', color: 'var(--primary)' }
+                              : {
+                                  background: 'var(--bg)',
+                                  color: 'var(--text-muted)',
+                                  border: '1px solid var(--border)',
+                                }
+                        }
+                      >
+                        {vp?.completed ? '✓' : idx + 1}
+                      </div>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: isActive ? 700 : 500,
+                            color: 'var(--text-primary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {video.title}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {Math.floor(video.duration / 60)} นาที
+                        </div>
+                      </div>
+                      {vp?.completed && (
+                        <span
+                          style={{ fontSize: 11, color: '#16A34A', fontWeight: 700, flexShrink: 0 }}
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 );
               })}
             </div>

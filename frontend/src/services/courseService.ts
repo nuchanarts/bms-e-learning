@@ -6,6 +6,7 @@ export interface Video {
   url: string;
   duration: number;
   order: number;
+  section?: string | null;
 }
 
 export interface CourseDocument {

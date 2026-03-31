@@ -3,6 +3,7 @@ import { AuthRequest } from '../../middleware/auth.middleware';
 import { adminService } from './admin.service';
 import { sheetsService } from './sheets.service';
 import { excelService } from './excel.service';
+import { onlineTracker } from '../../lib/onlineTracker';
 
 export const adminController = {
   async getAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
@@ -157,6 +158,34 @@ export const adminController = {
       );
       res.setHeader('Content-Disposition', 'attachment; filename="learners.xlsx"');
       res.send(buffer);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async listUsers(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const search = req.query.search as string | undefined;
+      const users = await adminService.getUsers(search);
+      const onlineAll = onlineTracker.getAll();
+      const result = users.map((u) => ({
+        ...u,
+        isOnline: onlineTracker.isOnline(u.id),
+        certCount: u._count.certificates,
+        progressCount: u._count.progress,
+      }));
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateUserRole(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { role } = req.body;
+      if (!['USER', 'ADMIN'].includes(role))
+        return res.status(400).json({ message: 'Invalid role' });
+      res.json(await adminService.updateUserRole(req.params.userId, role));
     } catch (err) {
       next(err);
     }
