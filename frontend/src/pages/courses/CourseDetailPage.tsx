@@ -183,14 +183,7 @@ export default function CourseDetailPage() {
         </div>
 
         {/* ─── Two-column layout ─── */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 320px',
-            gap: 20,
-            alignItems: 'start',
-          }}
-        >
+        <div className="detail-grid">
           {/* Video + info */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {selectedVideo && (

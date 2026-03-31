@@ -91,6 +91,29 @@ export default function LoginPage() {
             <span className="auth-feature-icon">📊</span>
             <span className="auth-feature-text">{t.login_feat3}</span>
           </div>
+
+          {/* ─── Logos ─── */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              marginTop: 36,
+              paddingTop: 20,
+              borderTop: '1px solid rgba(255,255,255,0.12)',
+            }}
+          >
+            <img
+              src="/logos/bgs-logo.png"
+              alt="Bangkok Global Software"
+              style={{ height: 36, width: 'auto', objectFit: 'contain', opacity: 0.85 }}
+            />
+            <img
+              src="/logos/bms-icon.png"
+              alt="BMS"
+              style={{ height: 36, width: 'auto', objectFit: 'contain', opacity: 0.85 }}
+            />
+          </div>
         </div>
       </div>
 

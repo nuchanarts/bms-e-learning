@@ -348,6 +348,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── PAGE CONTENT ── */}
       <main className="page-wrapper anim-in">{children}</main>
+
+      {/* ── FOOTER ── */}
+      <footer className="site-footer">
+        <div className="site-footer-inner">
+          <div className="site-footer-logos">
+            <img
+              src="/logos/bgs-logo.png"
+              alt="Bangkok Global Software"
+              className="site-footer-logo-img"
+            />
+            <img src="/logos/bms-icon.png" alt="BMS" className="site-footer-logo-img" />
+          </div>
+          <div className="site-footer-copy">
+            © {new Date().getFullYear()} Bangkok Global Software (BGS) · พัฒนาโดย BMS ·
+            สงวนลิขสิทธิ์
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

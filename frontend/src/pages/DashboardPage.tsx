@@ -209,14 +209,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ─── Stat Cards ─── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 16,
-          marginBottom: 32,
-        }}
-      >
+      <div className="stats-grid" style={{ marginBottom: 32 }}>
         {stats.map((s) => (
           <div className="stat-card" key={s.label}>
             <div className="stat-card-bar" style={{ background: s.bar }} />
@@ -262,13 +255,7 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 16,
-          }}
-        >
+        <div className="course-grid">
           {data.courses.map((course, i) => (
             <div
               key={course.id}

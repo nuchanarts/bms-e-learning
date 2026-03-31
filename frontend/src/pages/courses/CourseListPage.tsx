@@ -154,13 +154,7 @@ export default function CourseListPage() {
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 20,
-          }}
-        >
+        <div className="course-grid">
           {filtered.map((course, i) => {
             const thumb = THUMBS[i % THUMBS.length];
             return (

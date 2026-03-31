@@ -602,8 +602,10 @@ export default function AdminPage() {
               <div className="spinner spinner-lg" />
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <div className="card table-scroll" style={{ padding: 0, overflow: 'hidden' }}>
+              <table
+                style={{ width: '100%', minWidth: 800, borderCollapse: 'collapse', fontSize: 13 }}
+              >
                 <thead>
                   <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
                     {[
