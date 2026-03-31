@@ -399,7 +399,7 @@ export default function AdminPage() {
                   fontSize: 30,
                 }}
               >
-                {(analytics as Record<string, number>)[key]}
+                {(analytics as unknown as Record<string, number>)[key]}
               </div>
             </div>
           ))}

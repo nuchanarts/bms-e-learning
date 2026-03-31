@@ -131,3 +131,9 @@ model QuizAttempt {
 
   @@unique([userId, courseId])
 }
+
+model SiteSetting {
+  key       String   @id @db.VarChar(100)
+  value     String   @db.LongText
+  updatedAt DateTime @updatedAt
+}

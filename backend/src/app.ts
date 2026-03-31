@@ -9,6 +9,7 @@ import certificateRoutes from './modules/certificate/certificate.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import quizRoutes from './modules/quiz/quiz.routes';
+import helpRoutes from './modules/help/help.routes';
 import { errorHandler } from './middleware/error.middleware';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/certificates', certificateRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/admin', adminRoutes);
 app.use('/quiz', quizRoutes);
+app.use('/help', helpRoutes);
 
 app.use(errorHandler);
 

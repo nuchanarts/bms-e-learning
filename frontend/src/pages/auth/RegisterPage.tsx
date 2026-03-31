@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: '',
@@ -20,7 +22,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
     if (form.cid && !/^\d{13}$/.test(form.cid)) {
-      setError('เลขบัตรประชาชนต้องมี 13 หลัก');
+      setError(t.register_error_cid);
       return;
     }
     setLoading(true);
@@ -35,7 +37,7 @@ export default function RegisterPage() {
       );
       navigate('/dashboard');
     } catch {
-      setError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      setError(t.register_error_general);
     } finally {
       setLoading(false);
     }

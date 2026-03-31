@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage, LANGUAGES } from '../../contexts/LanguageContext';
 
 const REMEMBER_KEY = 'bgs_remember_email';
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '');
   const [password, setPassword] = useState('');
@@ -26,7 +28,7 @@ export default function LoginPage() {
       await login(email, password);
       navigate('/dashboard');
     } catch {
-      setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      setError(t.login_error);
     } finally {
       setLoading(false);
     }
@@ -44,34 +46,38 @@ export default function LoginPage() {
             <div className="auth-logo-icon">🏥</div>
             <div>
               <div className="auth-logo-name">รพ.สต. Learning Hub</div>
-              <div className="auth-logo-sub">แพลตฟอร์มสื่อการสอนออนไลน์</div>
+              <div className="auth-logo-sub">{t.nav_platform_sub}</div>
             </div>
           </div>
 
           <h1 className="auth-tagline">
-            เรียนรู้ทักษะใหม่
-            <br />
-            สำหรับเจ้าหน้าที่
-            <br />
-            รพ.สต. ทั่วประเทศ
+            {t.login_tagline.split('\n').map((line, i) => (
+              <span key={i}>
+                {line}
+                {i < 2 && <br />}
+              </span>
+            ))}
           </h1>
           <p className="auth-tagline-sub">
-            พัฒนาศักยภาพด้านสาธารณสุขชุมชน
-            <br />
-            ด้วยคอร์สเรียนออนไลน์คุณภาพสูง
+            {t.login_tagline_sub.split('\n').map((line, i) => (
+              <span key={i}>
+                {line}
+                {i === 0 && <br />}
+              </span>
+            ))}
           </p>
 
           <div className="auth-feature">
             <span className="auth-feature-icon">🎓</span>
-            <span className="auth-feature-text">คอร์สเรียนครบครันสำหรับ รพ.สต.</span>
+            <span className="auth-feature-text">{t.login_feat1}</span>
           </div>
           <div className="auth-feature">
             <span className="auth-feature-icon">🏆</span>
-            <span className="auth-feature-text">ใบประกาศรับรองผลการเรียน</span>
+            <span className="auth-feature-text">{t.login_feat2}</span>
           </div>
           <div className="auth-feature">
             <span className="auth-feature-icon">📊</span>
-            <span className="auth-feature-text">ติดตามความก้าวหน้าการเรียน</span>
+            <span className="auth-feature-text">{t.login_feat3}</span>
           </div>
         </div>
       </div>
@@ -79,8 +85,40 @@ export default function LoginPage() {
       {/* ─── Right form panel ─── */}
       <div className="auth-right">
         <div className="auth-form-box anim-up">
-          <h2 className="auth-form-title">ยินดีต้อนรับกลับ 👋</h2>
-          <p className="auth-form-sub">เข้าสู่ระบบเพื่อเริ่มเรียนต่อ</p>
+          {/* Language selector on auth page */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: 16,
+              gap: 6,
+              flexWrap: 'wrap',
+            }}
+          >
+            {LANGUAGES.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => setLang(l.code)}
+                title={l.label}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: 14,
+                  border: `1px solid ${l.code === lang ? 'var(--primary)' : 'var(--border)'}`,
+                  background: l.code === lang ? 'var(--primary)' : 'transparent',
+                  color: l.code === lang ? '#fff' : 'var(--text-muted)',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: 600,
+                }}
+              >
+                {l.flag} {l.label}
+              </button>
+            ))}
+          </div>
+
+          <h2 className="auth-form-title">{t.login_welcome}</h2>
+          <p className="auth-form-sub">{t.login_subtitle}</p>
 
           {error && (
             <div className="alert-error" role="alert">
@@ -94,7 +132,7 @@ export default function LoginPage() {
           >
             <div className="form-group">
               <label className="form-label" htmlFor="email">
-                อีเมล
+                {t.login_email}
               </label>
               <input
                 id="email"
@@ -111,7 +149,7 @@ export default function LoginPage() {
 
             <div className="form-group">
               <label className="form-label" htmlFor="password">
-                รหัสผ่าน
+                {t.login_password}
               </label>
               <input
                 id="password"
@@ -142,7 +180,7 @@ export default function LoginPage() {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--primary)' }}
               />
-              จดจำอีเมลของฉัน
+              {t.login_remember}
             </label>
 
             <button
@@ -154,10 +192,10 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
-                  กำลังเข้าสู่ระบบ...
+                  {t.login_loading}
                 </>
               ) : (
-                'เข้าสู่ระบบ'
+                t.login_submit
               )}
             </button>
           </form>
@@ -165,9 +203,9 @@ export default function LoginPage() {
           <p
             style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-muted)' }}
           >
-            ยังไม่มีบัญชี?{' '}
+            {t.login_no_account}{' '}
             <Link to="/register" className="auth-link">
-              สมัครสมาชิกฟรี
+              {t.login_register_link}
             </Link>
           </p>
         </div>

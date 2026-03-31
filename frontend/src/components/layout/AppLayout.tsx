@@ -1,18 +1,23 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-
-const navItems = [
-  { to: '/dashboard', icon: '🏠', label: 'หน้าหลัก' },
-  { to: '/courses', icon: '🎓', label: 'คอร์สเรียน' },
-  { to: '/certificates', icon: '🏆', label: 'ใบประกาศ' },
-];
+import { useLanguage, LANGUAGES } from '../../contexts/LanguageContext';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { t, lang, setLang } = useLanguage();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef<HTMLDivElement>(null);
+
+  const navItems = [
+    { to: '/dashboard', icon: '🏠', label: t.nav_dashboard },
+    { to: '/courses', icon: '🎓', label: t.nav_courses },
+    { to: '/certificates', icon: '🏆', label: t.nav_certificates },
+    { to: '/help', icon: '💬', label: t.nav_help },
+  ];
 
   const handleLogout = () => {
     logout();
@@ -21,8 +26,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const allNav = [
     ...navItems,
-    ...(user?.role === 'ADMIN' ? [{ to: '/admin', icon: '⚙️', label: 'Admin Panel' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ to: '/admin', icon: '⚙️', label: t.nav_admin }] : []),
   ];
+
+  const currentLang = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
+
+  // Close lang dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -43,7 +61,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="navbar-logo-icon">🏥</div>
             <div className="navbar-logo-text">
               <span className="navbar-logo-title">รพ.สต. Learning Hub</span>
-              <span className="navbar-logo-sub">แพลตฟอร์มสื่อการสอนออนไลน์</span>
+              <span className="navbar-logo-sub">{t.nav_platform_sub}</span>
             </div>
           </Link>
 
@@ -64,15 +82,103 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {/* User area */}
-          <div className="navbar-user">
-            <div className="navbar-avatar" title={user?.name}>
-              {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
+          {/* Right area: Language + User */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* ── Language Selector ── */}
+            <div ref={langRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setLangOpen((o) => !o)}
+                title="เปลี่ยนภาษา / Change Language"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 10px',
+                  borderRadius: 20,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{currentLang.flag}</span>
+                <span>{currentLang.label}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>▼</span>
+              </button>
+
+              {langOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    right: 0,
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    zIndex: 200,
+                    minWidth: 160,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {LANGUAGES.map((l) => (
+                    <button
+                      key={l.code}
+                      onClick={() => {
+                        setLang(l.code);
+                        setLangOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        width: '100%',
+                        padding: '10px 16px',
+                        border: 'none',
+                        background: l.code === lang ? 'rgba(123,104,238,0.08)' : 'transparent',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontWeight: l.code === lang ? 700 : 500,
+                        color: l.code === lang ? 'var(--primary)' : 'var(--text-primary)',
+                        fontFamily: 'inherit',
+                        textAlign: 'left',
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (l.code !== lang)
+                          (e.currentTarget as HTMLButtonElement).style.background =
+                            'rgba(123,104,238,0.04)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (l.code !== lang)
+                          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>{l.flag}</span>
+                      <span>{l.label}</span>
+                      {l.code === lang && (
+                        <span style={{ marginLeft: 'auto', fontSize: 12 }}>✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <span className="navbar-user-name">{user?.name}</span>
-            <button data-testid="logout-button" className="navbar-logout" onClick={handleLogout}>
-              ออกจากระบบ
-            </button>
+
+            {/* User area */}
+            <div className="navbar-user">
+              <div className="navbar-avatar" title={user?.name}>
+                {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
+              </div>
+              <span className="navbar-user-name">{user?.name}</span>
+              <button data-testid="logout-button" className="navbar-logout" onClick={handleLogout}>
+                {t.nav_logout}
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -102,9 +208,47 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
                 รพ.สต. Learning Hub
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                แพลตฟอร์มสื่อการสอนออนไลน์
-              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.nav_platform_sub}</div>
+            </div>
+          </div>
+
+          {/* Language selector (mobile) */}
+          <div
+            style={{
+              padding: '0 6px 12px',
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 8,
+            }}
+          >
+            <div
+              style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}
+            >
+              🌐 ภาษา / Language
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => setLang(l.code)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '4px 10px',
+                    borderRadius: 16,
+                    border: `1px solid ${l.code === lang ? 'var(--primary)' : 'var(--border)'}`,
+                    background: l.code === lang ? 'var(--primary)' : 'transparent',
+                    color: l.code === lang ? '#fff' : 'var(--text-primary)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <span>{l.flag}</span>
+                  <span>{l.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -144,7 +288,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {user?.name}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ รพ.สต.'}
+                  {user?.role === 'ADMIN' ? t.nav_admin_role : t.nav_staff}
                 </div>
               </div>
             </div>
@@ -167,7 +311,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 fontFamily: 'inherit',
               }}
             >
-              ออกจากระบบ
+              {t.nav_logout}
             </button>
           </div>
         </div>
