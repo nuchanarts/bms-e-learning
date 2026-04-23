@@ -13,8 +13,18 @@ export const authRepository = {
     name: string;
     cid?: string;
     hospital?: string;
+    hospcode?: string;
     position?: string;
   }) {
     return prisma.user.create({ data });
+  },
+  async findById(id: string) {
+    return prisma.user.findUnique({ where: { id } });
+  },
+  async updateById(id: string, data: { name?: string; hospital?: string; position?: string }) {
+    return prisma.user.update({ where: { id }, data });
+  },
+  async findByHospcodeAndCid(hospcode: string, cid: string) {
+    return prisma.user.findMany({ where: { hospcode, cid } });
   },
 };

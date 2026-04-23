@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 
 interface Analytics {
@@ -60,6 +60,7 @@ interface CourseItem {
   title: string;
   description: string;
   category?: string;
+  thumbnailUrl?: string | null;
   isActive: boolean;
   order: number;
   price?: number | null;
@@ -94,7 +95,342 @@ const statCards = [
   },
 ];
 
-type AdminTab = 'courses' | 'users';
+interface ActivityEvent {
+  type: 'new_user' | 'certificate' | 'payment';
+  icon: string;
+  title: string;
+  detail: string;
+  at: string;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+}
+
+interface SiteSettings {
+  contact_phone: string;
+  contact_phone_label: string;
+  contact_phone_detail: string;
+  contact_email: string;
+  contact_email_label: string;
+  contact_email_detail: string;
+  contact_line: string;
+  contact_line_label: string;
+  contact_line_detail: string;
+  contact_facebook: string;
+  contact_facebook_label: string;
+  contact_facebook_detail: string;
+  contact_address: string;
+  cert_signer_name: string;
+  cert_signer_title: string;
+  cert_title_en: string;
+  cert_title_th: string;
+  cert_intro_text: string;
+  cert_org_name: string;
+  cert_course_label: string;
+  cert_left_bg_from: string;
+  cert_left_bg_to: string;
+  categories: string;
+}
+
+type AdminTab = 'courses' | 'users' | 'updates';
+
+interface HospItem {
+  hospcode: string;
+  name: string;
+  province: string;
+  district: string;
+  isCustom: boolean;
+}
+
+function HospitalManager() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<HospItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addForm, setAddForm] = useState({ hospcode: '', name: '', province: '', district: '' });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load all hospitals (admin mode) on mount
+  useEffect(() => {
+    api
+      .get<HospItem[]>('/hospitals?admin=1')
+      .then((r) => setResults(r.data))
+      .catch(() => {
+        /* ignore */
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const search = (q: string) => {
+    setQuery(q);
+    if (timeout.current) clearTimeout(timeout.current);
+    if (!q.trim() || q.length < 2) {
+      // reload all
+      api
+        .get<HospItem[]>('/hospitals?admin=1')
+        .then((r) => setResults(r.data))
+        .catch(() => {});
+      return;
+    }
+    timeout.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get<HospItem[]>(`/hospitals?admin=1&q=${encodeURIComponent(q)}`);
+        setResults(data);
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleToggleActive = async (h: HospItem) => {
+    try {
+      const { data } = await api.patch<HospItem>(`/hospitals/${h.hospcode}/active`);
+      setResults((prev) =>
+        prev.map((x) => (x.hospcode === h.hospcode ? { ...x, isActive: data.isActive } : x)),
+      );
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? 'เกิดข้อผิดพลาด');
+    }
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.hospcode.trim() || !addForm.name.trim()) return;
+    setSaving(true);
+    try {
+      const { data } = await api.post<HospItem>('/hospitals', addForm);
+      setResults((prev) => [data, ...prev]);
+      setMsg('เพิ่มสถานพยาบาลสำเร็จ!');
+      setAddForm({ hospcode: '', name: '', province: '', district: '' });
+      setTimeout(() => setMsg(''), 3000);
+    } catch (err: any) {
+      setMsg(err?.response?.data?.message ?? 'เกิดข้อผิดพลาด');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (code: string) => {
+    if (!confirm(`ลบ ${code}?`)) return;
+    try {
+      await api.delete(`/hospitals/${code}`);
+      setResults((r) => r.filter((h) => h.hospcode !== code));
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? 'ลบไม่สำเร็จ');
+    }
+  };
+
+  const active = results.filter((h) => h.isActive);
+  const inactive = results.filter((h) => !h.isActive);
+
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+        🏥 จัดการสถานพยาบาล
+      </h3>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+        เปิด/ปิดสถานพยาบาลที่แสดงในหน้าสมัครสมาชิก · แสดง {active.length} เปิดใช้งาน /{' '}
+        {inactive.length} ปิด
+      </p>
+
+      {/* Search */}
+      <div style={{ position: 'relative', marginBottom: 10 }}>
+        <input
+          className="form-input"
+          placeholder="ค้นหาด้วยรหัสหรือชื่อ..."
+          value={query}
+          onChange={(e) => search(e.target.value)}
+          style={{ fontSize: 12, padding: '7px 10px' }}
+        />
+        {loading && (
+          <span
+            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }}
+          >
+            <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+          </span>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          maxHeight: 280,
+          overflowY: 'auto',
+          marginBottom: 12,
+        }}
+      >
+        {results.map((h) => (
+          <div
+            key={h.hospcode}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: h.isActive ? 'var(--bg)' : 'rgba(239,68,68,0.04)',
+              border: `1px solid ${h.isActive ? 'var(--border)' : 'rgba(239,68,68,0.15)'}`,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: h.isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {h.name}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                รหัส {h.hospcode}
+                {h.district ? ` · ${h.district}` : ''}
+                {h.province ? ` · ${h.province}` : ''}
+                {h.isCustom && (
+                  <span style={{ color: 'var(--primary)', fontWeight: 700 }}> · เพิ่มเอง</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => handleToggleActive(h)}
+              style={{
+                padding: '2px 8px',
+                borderRadius: 6,
+                border: `1px solid ${h.isActive ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.3)'}`,
+                background: h.isActive ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.08)',
+                color: h.isActive ? '#DC2626' : '#16A34A',
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {h.isActive ? 'ปิด' : 'เปิด'}
+            </button>
+            {h.isCustom && (
+              <button
+                onClick={() => handleDelete(h.hospcode)}
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(239,68,68,0.2)',
+                  background: 'rgba(239,68,68,0.06)',
+                  color: '#DC2626',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  flexShrink: 0,
+                }}
+              >
+                ลบ
+              </button>
+            )}
+          </div>
+        ))}
+        {!loading && results.length === 0 && (
+          <p
+            style={{
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+              padding: '12px 0',
+            }}
+          >
+            ไม่พบข้อมูล
+          </p>
+        )}
+      </div>
+
+      {/* Add custom */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+        <div
+          style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}
+        >
+          ➕ เพิ่มสถานพยาบาลใหม่
+        </div>
+        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              className="form-input"
+              placeholder="รหัส 5 หลัก"
+              value={addForm.hospcode}
+              onChange={(e) =>
+                setAddForm((f) => ({
+                  ...f,
+                  hospcode: e.target.value.replace(/\D/g, '').slice(0, 5),
+                }))
+              }
+              maxLength={5}
+              required
+              style={{ fontSize: 12, padding: '6px 9px', width: 90, flexShrink: 0 }}
+            />
+            <input
+              className="form-input"
+              placeholder="ชื่อสถานพยาบาล"
+              value={addForm.name}
+              onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+              required
+              style={{ fontSize: 12, padding: '6px 9px', flex: 1 }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              className="form-input"
+              placeholder="จังหวัด"
+              value={addForm.province}
+              onChange={(e) => setAddForm((f) => ({ ...f, province: e.target.value }))}
+              style={{ fontSize: 12, padding: '6px 9px', flex: 1 }}
+            />
+            <input
+              className="form-input"
+              placeholder="อำเภอ"
+              value={addForm.district}
+              onChange={(e) => setAddForm((f) => ({ ...f, district: e.target.value }))}
+              style={{ fontSize: 12, padding: '6px 9px', flex: 1 }}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={saving}
+            style={{ fontSize: 12, padding: '7px 14px' }}
+          >
+            {saving ? 'กำลังบันทึก...' : 'เพิ่มสถานพยาบาล'}
+          </button>
+          {msg && (
+            <p
+              style={{
+                fontSize: 12,
+                color: msg.includes('สำเร็จ') ? '#16A34A' : '#DC2626',
+                fontWeight: 600,
+                margin: 0,
+              }}
+            >
+              {msg}
+            </p>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('courses');
@@ -115,9 +451,10 @@ export default function AdminPage() {
     title: string;
     description: string;
     category: string;
+    thumbnailUrl: string;
     isActive: boolean;
     price: number | null;
-  }>({ title: '', description: '', category: '', isActive: true, price: null });
+  }>({ title: '', description: '', category: '', thumbnailUrl: '', isActive: true, price: null });
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -159,18 +496,56 @@ export default function AdminPage() {
   // Reorder
   const [reordering, setReordering] = useState(false);
 
+  // Updates tab state
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [annForm, setAnnForm] = useState({ title: '', body: '', pinned: false });
+  const [savingAnn, setSavingAnn] = useState(false);
+  const [editingAnnId, setEditingAnnId] = useState<string | null>(null);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
+    contact_phone: '',
+    contact_phone_label: 'โทรศัพท์',
+    contact_phone_detail: 'จันทร์-ศุกร์ 9:00-18:00',
+    contact_email: '',
+    contact_email_label: 'Email',
+    contact_email_detail: 'ตอบกลับภายใน 24 ชั่วโมง',
+    contact_line: '',
+    contact_line_label: 'LINE Official',
+    contact_line_detail: 'ตอบเร็ว ตลอด 24 ชั่วโมง',
+    contact_facebook: '',
+    contact_facebook_label: 'Facebook',
+    contact_facebook_detail: 'ติดตามข่าวสารและอัพเดท',
+    contact_address: '',
+    cert_signer_name: '',
+    cert_signer_title: '',
+    cert_title_en: 'Certificate of Completion',
+    cert_title_th: 'ใบประกาศนียบัตร',
+    cert_intro_text: 'ขอมอบใบประกาศนียบัตรฉบับนี้เพื่อรับรองว่า',
+    cert_org_name: 'สื่อการสอน',
+    cert_course_label: 'ได้ผ่านการศึกษาหลักสูตร',
+    cert_left_bg_from: '#2D1B69',
+    cert_left_bg_to: '#6D28D9',
+    categories: '',
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+
   // Export
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [exportingExcel, setExportingExcel] = useState(false);
 
   const loadData = async () => {
-    const [a, c] = await Promise.all([
+    const [a, c, setRes] = await Promise.all([
       api.get<Analytics>('/admin/analytics'),
       api.get<CourseItem[]>('/courses'),
+      api.get<SiteSettings>('/admin/settings'),
     ]);
     setAnalytics(a.data);
     setCourses(c.data);
+    setSiteSettings(setRes.data);
   };
 
   useEffect(() => {
@@ -190,6 +565,7 @@ export default function AdminPage() {
       title: c.title,
       description: c.description,
       category: c.category ?? '',
+      thumbnailUrl: c.thumbnailUrl ?? '',
       isActive: c.isActive,
       price: c.price ?? null,
     });
@@ -199,7 +575,14 @@ export default function AdminPage() {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setForm({ title: '', description: '', category: '', isActive: true, price: null });
+    setForm({
+      title: '',
+      description: '',
+      category: '',
+      thumbnailUrl: '',
+      isActive: true,
+      price: null,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,7 +590,10 @@ export default function AdminPage() {
     setSaving(true);
     try {
       if (editingId) {
-        await api.put(`/admin/courses/${editingId}`, form);
+        await api.put(`/admin/courses/${editingId}`, {
+          ...form,
+          thumbnailUrl: form.thumbnailUrl || null,
+        });
         showSuccess('อัปเดตคอร์สสำเร็จ!');
         setEditingId(null);
       } else {
@@ -215,11 +601,19 @@ export default function AdminPage() {
           title: form.title,
           description: form.description,
           category: form.category || undefined,
+          thumbnailUrl: form.thumbnailUrl || null,
           price: form.price ?? null,
         });
         showSuccess('เพิ่มคอร์สสำเร็จ!');
       }
-      setForm({ title: '', description: '', category: '', isActive: true, price: null });
+      setForm({
+        title: '',
+        description: '',
+        category: '',
+        thumbnailUrl: '',
+        isActive: true,
+        price: null,
+      });
       await loadData();
     } catch {
       /* ignore */
@@ -467,6 +861,72 @@ export default function AdminPage() {
     }
   };
 
+  const loadUpdatesTab = async () => {
+    setLoadingActivity(true);
+    try {
+      const [actRes, annRes, setRes] = await Promise.all([
+        api.get<ActivityEvent[]>('/admin/activity'),
+        api.get<Announcement[]>('/admin/announcements'),
+        api.get<SiteSettings>('/admin/settings'),
+      ]);
+      setActivity(actRes.data);
+      setAnnouncements(annRes.data);
+      setSiteSettings(setRes.data);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingActivity(false);
+    }
+  };
+
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingAnn(true);
+    try {
+      if (editingAnnId) {
+        const updated = await api.put<Announcement>(
+          `/admin/announcements/${editingAnnId}`,
+          annForm,
+        );
+        setAnnouncements((prev) => prev.map((a) => (a.id === editingAnnId ? updated.data : a)));
+        setEditingAnnId(null);
+      } else {
+        const created = await api.post<Announcement>('/admin/announcements', annForm);
+        setAnnouncements((prev) => [created.data, ...prev]);
+      }
+      setAnnForm({ title: '', body: '', pinned: false });
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingAnn(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!confirm('ต้องการลบประกาศนี้?')) return;
+    await api.delete(`/admin/announcements/${id}`);
+    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleStartEditAnn = (a: Announcement) => {
+    setEditingAnnId(a.id);
+    setAnnForm({ title: a.title, body: a.body, pinned: a.pinned });
+  };
+
+  const handleSaveSettings = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault();
+    setSavingSettings(true);
+    try {
+      await api.put('/admin/settings', siteSettings);
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 3000);
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const handleExportSheets = async () => {
     setExporting(true);
     setExportMsg(null);
@@ -550,6 +1010,7 @@ export default function AdminPage() {
           [
             ['courses', '📚 จัดการคอร์ส'],
             ['users', '👥 ทะเบียนผู้ใช้'],
+            ['updates', '📢 ประกาศ & อัปเดต'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -557,6 +1018,7 @@ export default function AdminPage() {
             onClick={() => {
               setTab(key);
               if (key === 'users' && users.length === 0) loadUsers();
+              if (key === 'updates') loadUpdatesTab();
             }}
             style={{
               padding: '8px 20px',
@@ -604,6 +1066,36 @@ export default function AdminPage() {
             >
               รีเซ็ต
             </button>
+            <button
+              onClick={() => setShowOnlineOnly((v) => !v)}
+              style={{
+                padding: '0 14px',
+                borderRadius: 8,
+                border: `1.5px solid ${showOnlineOnly ? '#22C55E' : 'var(--border)'}`,
+                background: showOnlineOnly ? 'rgba(34,197,94,0.1)' : 'var(--card)',
+                color: showOnlineOnly ? '#16A34A' : 'var(--text-muted)',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                height: 38,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: '#22C55E',
+                  boxShadow: showOnlineOnly ? '0 0 6px #22C55E' : 'none',
+                  display: 'inline-block',
+                }}
+              />
+              Online เท่านั้น
+            </button>
           </div>
 
           {loadingUsers ? (
@@ -646,235 +1138,282 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, i) => (
-                    <tr
-                      key={u.id}
-                      style={{
-                        borderBottom: '1px solid var(--border)',
-                        background: i % 2 === 0 ? 'var(--card)' : 'var(--bg)',
-                      }}
-                    >
-                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 11 }}>
-                        {i + 1}
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <span
-                          title={u.isOnline ? 'Online (active < 5 min)' : 'Offline'}
-                          style={{
-                            display: 'inline-block',
-                            width: 10,
-                            height: 10,
-                            borderRadius: '50%',
-                            background: u.isOnline ? '#22C55E' : '#D1D5DB',
-                            boxShadow: u.isOnline ? '0 0 6px #22C55E' : 'none',
-                          }}
-                        />
-                      </td>
-                      <td
+                  {users
+                    .filter((u) => !showOnlineOnly || u.isOnline)
+                    .sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0))
+                    .map((u, i) => (
+                      <tr
+                        key={u.id}
                         style={{
-                          padding: '8px 12px',
-                          fontWeight: 600,
-                          color: 'var(--text-primary)',
-                          minWidth: 160,
+                          borderBottom: '1px solid var(--border)',
+                          background: i % 2 === 0 ? 'var(--card)' : 'var(--bg)',
                         }}
                       >
-                        {editingUserId === u.id ? (
-                          <form
-                            onSubmit={handleSaveUser}
-                            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-                          >
-                            <input
-                              className="form-input"
-                              value={editUserForm.name}
-                              onChange={(e) =>
-                                setEditUserForm((f) => ({ ...f, name: e.target.value }))
-                              }
-                              placeholder="ชื่อ"
-                              required
-                              style={{ fontSize: 12, padding: '4px 8px' }}
-                            />
-                            <input
-                              className="form-input"
-                              value={editUserForm.hospital}
-                              onChange={(e) =>
-                                setEditUserForm((f) => ({ ...f, hospital: e.target.value }))
-                              }
-                              placeholder="โรงพยาบาล"
-                              style={{ fontSize: 12, padding: '4px 8px' }}
-                            />
-                            <input
-                              className="form-input"
-                              value={editUserForm.position}
-                              onChange={(e) =>
-                                setEditUserForm((f) => ({ ...f, position: e.target.value }))
-                              }
-                              placeholder="ตำแหน่ง"
-                              style={{ fontSize: 12, padding: '4px 8px' }}
-                            />
-                            <div style={{ display: 'flex', gap: 4 }}>
-                              <button
-                                type="submit"
-                                className="btn-primary"
-                                disabled={savingUser}
-                                style={{ fontSize: 11, padding: '3px 10px' }}
+                        <td
+                          style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 11 }}
+                        >
+                          {i + 1}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <span
+                            title={u.isOnline ? 'Online (active < 5 min)' : 'Offline'}
+                            style={{
+                              display: 'inline-block',
+                              width: 10,
+                              height: 10,
+                              borderRadius: '50%',
+                              background: u.isOnline ? '#22C55E' : '#D1D5DB',
+                              boxShadow: u.isOnline ? '0 0 6px #22C55E' : 'none',
+                            }}
+                          />
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 12px',
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            minWidth: 160,
+                          }}
+                        >
+                          {editingUserId === u.id ? (
+                            <form
+                              onSubmit={handleSaveUser}
+                              style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                            >
+                              <input
+                                className="form-input"
+                                value={editUserForm.name}
+                                onChange={(e) =>
+                                  setEditUserForm((f) => ({ ...f, name: e.target.value }))
+                                }
+                                placeholder="ชื่อ"
+                                required
+                                style={{ fontSize: 12, padding: '4px 8px' }}
+                              />
+                              <input
+                                className="form-input"
+                                list="admin-hospital-list"
+                                value={editUserForm.hospital}
+                                onChange={(e) =>
+                                  setEditUserForm((f) => ({ ...f, hospital: e.target.value }))
+                                }
+                                placeholder="โรงพยาบาล / รหัสหรือชื่อ"
+                                autoComplete="off"
+                                style={{ fontSize: 12, padding: '4px 8px' }}
+                              />
+                              <select
+                                className="form-input"
+                                value={editUserForm.position}
+                                onChange={(e) =>
+                                  setEditUserForm((f) => ({ ...f, position: e.target.value }))
+                                }
+                                style={{ fontSize: 12, padding: '4px 8px' }}
                               >
-                                {savingUser ? '...' : '💾'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingUserId(null)}
-                                className="btn-secondary"
-                                style={{ fontSize: 11, padding: '3px 8px' }}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.name}</span>
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  padding: '1px 7px',
-                                  borderRadius: 8,
-                                  background: u.isActive ? '#DCFCE7' : '#FEE2E2',
-                                  color: u.isActive ? '#16A34A' : '#DC2626',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {u.isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
-                              </span>
-                            </div>
-                            {u.cid && (
+                                <option value="">-- ตำแหน่ง --</option>
+                                {[
+                                  'นักวิชาการสาธารณสุข',
+                                  'พยาบาลวิชาชีพ',
+                                  'เจ้าพนักงานสาธารณสุข',
+                                  'เจ้าพนักงานทันตสาธารณสุข',
+                                  'นักกายภาพบำบัด',
+                                  'นักโภชนาการ',
+                                  'เภสัชกร',
+                                  'แพทย์แผนไทย',
+                                  'ผู้อำนวยการโรงพยาบาลส่งเสริมสุขภาพตำบล',
+                                  'นักเทคนิคการแพทย์',
+                                  'นักวิเคราะห์นโยบายและแผน',
+                                  'นักทรัพยากรบุคคล',
+                                  'เจ้าพนักงานธุรการ',
+                                  'นักวิชาการคอมพิวเตอร์',
+                                  'นายแพทย์',
+                                  'ทันตแพทย์ชาย',
+                                  'ทันตแพทย์หญิง',
+                                  'อื่นๆ',
+                                ].map((p) => (
+                                  <option key={p} value={p}>
+                                    {p}
+                                  </option>
+                                ))}
+                              </select>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  type="submit"
+                                  className="btn-primary"
+                                  disabled={savingUser}
+                                  style={{ fontSize: 11, padding: '3px 10px' }}
+                                >
+                                  {savingUser ? '...' : '💾'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingUserId(null)}
+                                  className="btn-secondary"
+                                  style={{ fontSize: 11, padding: '3px 8px' }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
                               <div
                                 style={{
-                                  fontSize: 10,
-                                  color: 'var(--text-muted)',
-                                  fontWeight: 400,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'nowrap',
                                 }}
                               >
-                                CID: {u.cid}
+                                <button
+                                  onClick={() => handleStartEditUser(u)}
+                                  title="แก้ไขข้อมูล"
+                                  style={{
+                                    flexShrink: 0,
+                                    fontSize: 13,
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '1px 2px',
+                                    lineHeight: 1,
+                                    opacity: 0.7,
+                                  }}
+                                >
+                                  ✏️
+                                </button>
+                                <span style={{ opacity: u.isActive ? 1 : 0.5, fontWeight: 600 }}>
+                                  {u.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    padding: '1px 7px',
+                                    borderRadius: 8,
+                                    background: u.isActive ? '#DCFCE7' : '#FEE2E2',
+                                    color: u.isActive ? '#16A34A' : '#DC2626',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {u.isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                                </span>
                               </div>
-                            )}
-                            <button
-                              onClick={() => handleStartEditUser(u)}
+                              {u.cid && (
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    color: 'var(--text-muted)',
+                                    fontWeight: 400,
+                                    marginTop: 2,
+                                    paddingLeft: 22,
+                                  }}
+                                >
+                                  CID: {u.cid}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
+                          {u.email}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
+                          {editingUserId === u.id ? '—' : (u.hospital ?? '-')}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
+                          {editingUserId === u.id ? '—' : (u.position ?? '-')}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <span
+                            style={{
+                              padding: '2px 10px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: u.role === 'ADMIN' ? '#EDE9FE' : '#F0FDF4',
+                              color: u.role === 'ADMIN' ? '#7B68EE' : '#16A34A',
+                            }}
+                          >
+                            {u.role === 'ADMIN' ? 'Admin' : 'Staff'}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 12px',
+                            textAlign: 'center',
+                            fontWeight: 700,
+                            color: 'var(--primary)',
+                          }}
+                        >
+                          {u.certCount}
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 12px',
+                            color: 'var(--text-muted)',
+                            fontSize: 11,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {new Date(u.createdAt).toLocaleDateString('th-TH', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <select
+                              value={u.role}
+                              disabled={updatingRole === u.id}
+                              onChange={(e) =>
+                                handleRoleChange(u.id, e.target.value as 'USER' | 'ADMIN')
+                              }
                               style={{
-                                marginTop: 2,
-                                fontSize: 10,
-                                color: 'var(--primary)',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
+                                padding: '5px 8px',
+                                borderRadius: 7,
+                                border: '1px solid var(--border)',
+                                background: 'var(--card)',
+                                fontSize: 12,
                                 fontFamily: 'inherit',
-                                padding: 0,
-                                fontWeight: 600,
+                                cursor: 'pointer',
+                                color: 'var(--text-primary)',
                               }}
                             >
-                              ✏️ แก้ไข
+                              <option value="USER">Staff</option>
+                              <option value="ADMIN">Admin</option>
+                            </select>
+                            <button
+                              onClick={() => handleToggleActive(u.id, !u.isActive)}
+                              title={u.isActive ? 'ระงับบัญชี' : 'เปิดใช้งานบัญชี'}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: 7,
+                                border: `1px solid ${u.isActive ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.3)'}`,
+                                background: u.isActive
+                                  ? 'rgba(239,68,68,0.06)'
+                                  : 'rgba(34,197,94,0.08)',
+                                color: u.isActive ? '#DC2626' : '#16A34A',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {u.isActive ? '🔒 ปิดใช้งาน' : '✅ เปิดใช้งาน'}
                             </button>
-                          </>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{u.email}</td>
-                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
-                        {editingUserId === u.id ? '—' : (u.hospital ?? '-')}
-                      </td>
-                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
-                        {editingUserId === u.id ? '—' : (u.position ?? '-')}
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <span
-                          style={{
-                            padding: '2px 10px',
-                            borderRadius: 12,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            background: u.role === 'ADMIN' ? '#EDE9FE' : '#F0FDF4',
-                            color: u.role === 'ADMIN' ? '#7B68EE' : '#16A34A',
-                          }}
-                        >
-                          {u.role === 'ADMIN' ? 'Admin' : 'Staff'}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: '8px 12px',
-                          textAlign: 'center',
-                          fontWeight: 700,
-                          color: 'var(--primary)',
-                        }}
-                      >
-                        {u.certCount}
-                      </td>
-                      <td
-                        style={{
-                          padding: '8px 12px',
-                          color: 'var(--text-muted)',
-                          fontSize: 11,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {new Date(u.createdAt).toLocaleDateString('th-TH', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <select
-                          value={u.role}
-                          disabled={updatingRole === u.id}
-                          onChange={(e) =>
-                            handleRoleChange(u.id, e.target.value as 'USER' | 'ADMIN')
-                          }
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: 7,
-                            border: '1px solid var(--border)',
-                            background: 'var(--card)',
-                            fontSize: 12,
-                            fontFamily: 'inherit',
-                            cursor: 'pointer',
-                            color: 'var(--text-primary)',
-                          }}
-                        >
-                          <option value="USER">Staff</option>
-                          <option value="ADMIN">Admin</option>
-                        </select>
-                        <button
-                          onClick={() => handleToggleActive(u.id, !u.isActive)}
-                          title={u.isActive ? 'ระงับบัญชี' : 'เปิดใช้งานบัญชี'}
-                          style={{
-                            marginTop: 4,
-                            width: '100%',
-                            padding: '4px 8px',
-                            borderRadius: 7,
-                            border: `1px solid ${u.isActive ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.3)'}`,
-                            background: u.isActive
-                              ? 'rgba(239,68,68,0.06)'
-                              : 'rgba(34,197,94,0.08)',
-                            color: u.isActive ? '#DC2626' : '#16A34A',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                          }}
-                        >
-                          {u.isActive ? '🔒 ปิดใช้งาน' : '✅ ใช้งาน'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   {users.length === 0 && (
                     <tr>
                       <td
                         colSpan={10}
                         style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}
                       >
-                        ไม่พบผู้ใช้
+                        {showOnlineOnly ? 'ไม่มีผู้ใช้ Online ขณะนี้' : 'ไม่พบผู้ใช้'}
                       </td>
                     </tr>
                   )}
@@ -882,6 +1421,628 @@ export default function AdminPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {tab === 'updates' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          {/* ── LEFT: Settings + Activity ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* ── Contact Settings ── */}
+            <div className="card" style={{ padding: 20 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 6,
+                }}
+              >
+                📞 ช่องทางติดต่อ
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                กำหนดข้อมูลและเวลาทำการของแต่ละช่องทาง
+              </p>
+              <form
+                onSubmit={handleSaveSettings}
+                style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              >
+                {[
+                  {
+                    key: 'contact_phone',
+                    icon: '📞',
+                    valuePlaceholder: '02-xxx-xxxx',
+                    detailPlaceholder: 'เช่น จันทร์-ศุกร์ 9:00-18:00',
+                  },
+                  {
+                    key: 'contact_email',
+                    icon: '📧',
+                    valuePlaceholder: 'info@example.com',
+                    detailPlaceholder: 'เช่น ตอบกลับภายใน 24 ชั่วโมง',
+                  },
+                  {
+                    key: 'contact_line',
+                    icon: '💬',
+                    valuePlaceholder: '@yourline',
+                    detailPlaceholder: 'เช่น ตอบเร็ว ตลอด 24 ชั่วโมง',
+                  },
+                  {
+                    key: 'contact_facebook',
+                    icon: '📘',
+                    valuePlaceholder: 'https://fb.com/...',
+                    detailPlaceholder: 'เช่น ติดตามข่าวสาร',
+                  },
+                  {
+                    key: 'contact_address',
+                    icon: '📍',
+                    valuePlaceholder: 'ที่อยู่...',
+                    detailPlaceholder: '',
+                  },
+                ].map(({ key, icon, valuePlaceholder, detailPlaceholder }) => (
+                  <div
+                    key={key}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        marginBottom: 2,
+                      }}
+                    >
+                      {icon} {(siteSettings as Record<string, string>)[`${key}_label`] || key}
+                    </div>
+                    <input
+                      className="form-input"
+                      placeholder="ชื่อหัวข้อ (เช่น โทรศัพท์, Email)"
+                      value={(siteSettings as Record<string, string>)[`${key}_label`] ?? ''}
+                      onChange={(e) =>
+                        setSiteSettings((s) => ({ ...s, [`${key}_label`]: e.target.value }))
+                      }
+                      style={{ fontSize: 11, padding: '5px 9px' }}
+                    />
+                    <input
+                      className="form-input"
+                      placeholder={valuePlaceholder}
+                      value={(siteSettings as Record<string, string>)[key] ?? ''}
+                      onChange={(e) => setSiteSettings((s) => ({ ...s, [key]: e.target.value }))}
+                      style={{ fontSize: 12, padding: '7px 10px' }}
+                    />
+                    {detailPlaceholder && (
+                      <input
+                        className="form-input"
+                        placeholder={detailPlaceholder}
+                        value={(siteSettings as Record<string, string>)[`${key}_detail`] ?? ''}
+                        onChange={(e) =>
+                          setSiteSettings((s) => ({ ...s, [`${key}_detail`]: e.target.value }))
+                        }
+                        style={{ fontSize: 11, padding: '5px 9px', color: 'var(--text-muted)' }}
+                      />
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={savingSettings}
+                  style={{ marginTop: 4 }}
+                >
+                  {savingSettings ? 'กำลังบันทึก...' : '💾 บันทึกข้อมูลติดต่อ'}
+                </button>
+                {settingsSaved && (
+                  <p style={{ fontSize: 12, color: '#16A34A', fontWeight: 600, margin: 0 }}>
+                    บันทึกสำเร็จ!
+                  </p>
+                )}
+              </form>
+            </div>
+
+            {/* ── Activity Feed ── */}
+            <div className="card" style={{ padding: 20 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 14,
+                }}
+              >
+                ⚡ กิจกรรมล่าสุด (30 วัน)
+              </h3>
+              {loadingActivity ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                  <div className="spinner spinner-lg" />
+                </div>
+              ) : activity.length === 0 ? (
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center',
+                    padding: '20px 0',
+                  }}
+                >
+                  ยังไม่มีกิจกรรม
+                </p>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    maxHeight: 360,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {activity.map((ev, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        padding: '8px 10px',
+                        borderRadius: 10,
+                        background: 'var(--bg)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{ev.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}
+                        >
+                          {ev.title}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: 'var(--text-muted)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {ev.detail}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--text-muted)',
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
+                      >
+                        {new Date(ev.at).toLocaleDateString('th-TH', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Certificate Template ── */}
+            <div className="card" style={{ padding: 20 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 6,
+                }}
+              >
+                📜 ตั้งค่าใบประกาศนียบัตร
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                กำหนดข้อความและรูปแบบที่ปรากฏบนใบ Certificate ทุกใบ
+              </p>
+              <form
+                onSubmit={handleSaveSettings}
+                style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+              >
+                {[
+                  {
+                    key: 'cert_title_en',
+                    label: 'หัวข้อ (อังกฤษ)',
+                    placeholder: 'Certificate of Completion',
+                  },
+                  { key: 'cert_title_th', label: 'หัวข้อ (ไทย)', placeholder: 'ใบประกาศนียบัตร' },
+                  {
+                    key: 'cert_intro_text',
+                    label: 'ข้อความนำ',
+                    placeholder: 'ขอมอบใบประกาศนียบัตรฉบับนี้เพื่อรับรองว่า',
+                  },
+                  {
+                    key: 'cert_org_name',
+                    label: 'ชื่อหน่วยงาน (แสดงใต้ชื่อผู้เรียน)',
+                    placeholder: 'กรมสนับสนุนบริการสุขภาพ',
+                  },
+                  {
+                    key: 'cert_course_label',
+                    label: 'ข้อความก่อนชื่อคอร์ส',
+                    placeholder: 'ได้ผ่านการศึกษาหลักสูตร',
+                  },
+                  {
+                    key: 'cert_signer_name',
+                    label: 'ชื่อผู้ลงนาม',
+                    placeholder: 'ผู้อำนวยการ BGS',
+                  },
+                  {
+                    key: 'cert_signer_title',
+                    label: 'ตำแหน่ง / องค์กร',
+                    placeholder: 'Bangkok Global Software Co., Ltd.',
+                  },
+                ].map(({ key, label, placeholder }) => (
+                  <div key={key} className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: 12 }}>
+                      {label}
+                    </label>
+                    <input
+                      className="form-input"
+                      placeholder={placeholder}
+                      value={(siteSettings as Record<string, string>)[key] ?? ''}
+                      onChange={(e) => setSiteSettings((s) => ({ ...s, [key]: e.target.value }))}
+                      style={{ fontSize: 12, padding: '7px 10px' }}
+                    />
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                    <label className="form-label" style={{ fontSize: 12 }}>
+                      สีพื้นหลังซ้าย (เริ่ม)
+                    </label>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="color"
+                        value={siteSettings.cert_left_bg_from}
+                        onChange={(e) =>
+                          setSiteSettings((s) => ({ ...s, cert_left_bg_from: e.target.value }))
+                        }
+                        style={{
+                          width: 36,
+                          height: 32,
+                          border: '1px solid var(--border)',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          padding: 2,
+                        }}
+                      />
+                      <input
+                        className="form-input"
+                        value={siteSettings.cert_left_bg_from}
+                        onChange={(e) =>
+                          setSiteSettings((s) => ({ ...s, cert_left_bg_from: e.target.value }))
+                        }
+                        style={{ fontSize: 12, padding: '7px 10px', flex: 1 }}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                    <label className="form-label" style={{ fontSize: 12 }}>
+                      สีพื้นหลังซ้าย (สิ้นสุด)
+                    </label>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="color"
+                        value={siteSettings.cert_left_bg_to}
+                        onChange={(e) =>
+                          setSiteSettings((s) => ({ ...s, cert_left_bg_to: e.target.value }))
+                        }
+                        style={{
+                          width: 36,
+                          height: 32,
+                          border: '1px solid var(--border)',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          padding: 2,
+                        }}
+                      />
+                      <input
+                        className="form-input"
+                        value={siteSettings.cert_left_bg_to}
+                        onChange={(e) =>
+                          setSiteSettings((s) => ({ ...s, cert_left_bg_to: e.target.value }))
+                        }
+                        style={{ fontSize: 12, padding: '7px 10px', flex: 1 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Live preview strip */}
+                <div
+                  style={{
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    height: 52,
+                    marginTop: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 80,
+                      background: `linear-gradient(160deg,${siteSettings.cert_left_bg_from},${siteSettings.cert_left_bg_to})`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 22,
+                      flexShrink: 0,
+                    }}
+                  >
+                    🏥
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      background: 'var(--surface)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      padding: '0 12px',
+                      gap: 2,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 9,
+                        letterSpacing: 2,
+                        color: '#9CA3AF',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {siteSettings.cert_title_en || 'Certificate of Completion'}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#1F2937' }}>
+                      {siteSettings.cert_title_th || 'ใบประกาศนียบัตร'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={savingSettings}
+                  style={{ marginTop: 4 }}
+                >
+                  {savingSettings ? 'กำลังบันทึก...' : '💾 บันทึกการตั้งค่าใบประกาศ'}
+                </button>
+                {settingsSaved && (
+                  <p style={{ fontSize: 12, color: '#16A34A', fontWeight: 600, margin: 0 }}>
+                    บันทึกสำเร็จ!
+                  </p>
+                )}
+              </form>
+            </div>
+          </div>
+
+          {/* ── RIGHT: Announcements ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="card" style={{ padding: 20 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 14,
+                }}
+              >
+                {editingAnnId ? '✏️ แก้ไขประกาศ' : '📢 เพิ่มประกาศใหม่'}
+              </h3>
+              <form
+                onSubmit={handleSaveAnnouncement}
+                style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+              >
+                <input
+                  className="form-input"
+                  placeholder="หัวข้อประกาศ"
+                  value={annForm.title}
+                  onChange={(e) => setAnnForm((f) => ({ ...f, title: e.target.value }))}
+                  required
+                  style={{ fontSize: 13 }}
+                />
+                <textarea
+                  className="form-input"
+                  placeholder="รายละเอียดประกาศ..."
+                  rows={4}
+                  value={annForm.body}
+                  onChange={(e) => setAnnForm((f) => ({ ...f, body: e.target.value }))}
+                  required
+                  style={{ fontSize: 13, resize: 'vertical', minHeight: 80 }}
+                />
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={annForm.pinned}
+                    onChange={(e) => setAnnForm((f) => ({ ...f, pinned: e.target.checked }))}
+                    style={{ width: 15, height: 15, accentColor: 'var(--primary)' }}
+                  />
+                  📌 ปักหมุด (แสดงบนสุด)
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={savingAnn}
+                    style={{ flex: 1 }}
+                  >
+                    {savingAnn ? 'กำลังบันทึก...' : editingAnnId ? '💾 อัปเดต' : '➕ เพิ่มประกาศ'}
+                  </button>
+                  {editingAnnId && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        setEditingAnnId(null);
+                        setAnnForm({ title: '', body: '', pinned: false });
+                      }}
+                    >
+                      ยกเลิก
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            <div className="card" style={{ padding: 20 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 14,
+                }}
+              >
+                รายการประกาศ
+                <span className="badge badge-purple" style={{ marginLeft: 8 }}>
+                  {announcements.length}
+                </span>
+              </h3>
+              {announcements.length === 0 ? (
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center',
+                    padding: '20px 0',
+                  }}
+                >
+                  ยังไม่มีประกาศ
+                </p>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    maxHeight: 420,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {announcements.map((a) => (
+                    <div
+                      key={a.id}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        background: 'var(--bg)',
+                        border: `1px solid ${a.pinned ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              marginBottom: 4,
+                            }}
+                          >
+                            {a.pinned && <span style={{ fontSize: 12 }}>📌</span>}
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                              }}
+                            >
+                              {a.title}
+                            </span>
+                          </div>
+                          <p
+                            style={{
+                              fontSize: 12,
+                              color: 'var(--text-muted)',
+                              margin: 0,
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {a.body}
+                          </p>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>
+                            {new Date(a.createdAt).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <button
+                            onClick={() => handleStartEditAnn(a)}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: 6,
+                              border: '1px solid rgba(123,104,238,0.25)',
+                              background: 'rgba(123,104,238,0.06)',
+                              color: 'var(--primary)',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            แก้ไข
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAnnouncement(a.id)}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: 6,
+                              border: '1px solid rgba(239,68,68,0.2)',
+                              background: 'rgba(239,68,68,0.06)',
+                              color: '#DC2626',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Hospital Management ── */}
+            <HospitalManager />
+          </div>
         </div>
       )}
 
@@ -919,156 +2080,64 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* ─── Top 5 Learners + Completion Rates ─── */}
-          {analytics &&
-            (analytics.topLearners?.length > 0 || analytics.courseCompletionRates?.length > 0) && (
+          {/* ─── Categories ─── */}
+          <div className="card" style={{ padding: 16, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 16,
-                  marginBottom: 20,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {/* Top 5 Learners */}
-                {analytics.topLearners?.length > 0 && (
-                  <div className="card" style={{ padding: 20 }}>
-                    <h3
+                🏷️ หมวดหมู่คอร์ส
+              </div>
+              <input
+                className="form-input"
+                placeholder="เช่น สาธารณสุข, บริหาร, เภสัช, เวชระเบียน (คั่นด้วย ,)"
+                value={siteSettings.categories}
+                onChange={(e) => setSiteSettings((s) => ({ ...s, categories: e.target.value }))}
+                style={{ fontSize: 12, padding: '6px 10px', flex: 1, minWidth: 240 }}
+              />
+              <button
+                onClick={handleSaveSettings}
+                className="btn-primary"
+                disabled={savingSettings}
+                style={{ fontSize: 12, padding: '6px 14px', whiteSpace: 'nowrap' }}
+              >
+                {savingSettings ? 'บันทึก...' : '💾 บันทึก'}
+              </button>
+            </div>
+            {siteSettings.categories && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {siteSettings.categories
+                  .split(',')
+                  .map((c) => c.trim())
+                  .filter(Boolean)
+                  .map((cat) => (
+                    <span
+                      key={cat}
                       style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: 'var(--text-primary)',
-                        marginBottom: 14,
+                        padding: '3px 12px',
+                        borderRadius: 20,
+                        background: 'rgba(123,104,238,0.12)',
+                        color: 'var(--primary)',
+                        fontSize: 12,
+                        fontWeight: 600,
                       }}
                     >
-                      🏅 Top 5 Learners
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {analytics.topLearners.map((l, i) => (
-                        <div
-                          key={l.userId}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            padding: '8px 10px',
-                            borderRadius: 10,
-                            background: 'var(--bg)',
-                            border: '1px solid var(--border)',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 26,
-                              height: 26,
-                              borderRadius: 8,
-                              background:
-                                i === 0
-                                  ? '#FFD700'
-                                  : i === 1
-                                    ? '#A8A9AD'
-                                    : i === 2
-                                      ? '#CD7F32'
-                                      : 'var(--primary-light)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 12,
-                              fontWeight: 800,
-                              flexShrink: 0,
-                              color: i < 3 ? '#fff' : 'var(--primary)',
-                            }}
-                          >
-                            {i + 1}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: 'var(--text-primary)',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {l.name}
-                            </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                              {l.hospital ?? '-'}
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)' }}>
-                              {Math.round(l.totalSeconds / 60)} นาที
-                            </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                              {l.certCount} ใบ
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Completion Rates */}
-                {analytics.courseCompletionRates?.length > 0 && (
-                  <div className="card" style={{ padding: 20 }}>
-                    <h3
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: 'var(--text-primary)',
-                        marginBottom: 14,
-                      }}
-                    >
-                      📊 อัตราจบคอร์ส
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {analytics.courseCompletionRates.map((c) => (
-                        <div key={c.courseId}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              fontSize: 12,
-                              color: 'var(--text-primary)',
-                              marginBottom: 4,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontWeight: 600,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                flex: 1,
-                                marginRight: 8,
-                              }}
-                            >
-                              {c.title}
-                            </span>
-                            <span
-                              style={{ fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}
-                            >
-                              {c.rate}%
-                            </span>
-                          </div>
-                          <div className="progress-track" style={{ height: 6 }}>
-                            <div className="progress-fill" style={{ width: `${c.rate}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      {cat}
+                    </span>
+                  ))}
               </div>
             )}
+          </div>
 
           {/* ─── Two columns ─── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             {/* Create / Edit form */}
-            <div className="card" style={{ padding: 24 }}>
+            <div className="card" style={{ padding: 24, order: 2 }}>
               <h3
                 style={{
                   fontSize: 15,
@@ -1115,10 +2184,50 @@ export default function AdminPage() {
                   <label className="form-label">หมวดหมู่ (ไม่บังคับ)</label>
                   <input
                     className="form-input"
-                    placeholder="เช่น สาธารณสุข, บริหาร, เภสัช"
+                    list="category-options"
+                    placeholder="เลือกหรือพิมพ์หมวดหมู่"
                     value={form.category}
                     onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                   />
+                  <datalist id="category-options">
+                    {siteSettings.categories
+                      .split(',')
+                      .map((c) => c.trim())
+                      .filter(Boolean)
+                      .map((cat) => (
+                        <option key={cat} value={cat} />
+                      ))}
+                  </datalist>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">รูปหน้าปก (URL รูปภาพ — ไม่บังคับ)</label>
+                  <input
+                    className="form-input"
+                    placeholder="https://example.com/image.jpg"
+                    value={form.thumbnailUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, thumbnailUrl: e.target.value }))}
+                  />
+                  {form.thumbnailUrl && (
+                    <img
+                      src={form.thumbnailUrl}
+                      alt="preview"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                      onLoad={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'block';
+                      }}
+                      style={{
+                        marginTop: 8,
+                        width: '100%',
+                        maxHeight: 160,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        display: 'none',
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">ราคา (บาท) — เว้นว่างหากฟรี</label>
@@ -1196,7 +2305,7 @@ export default function AdminPage() {
             </div>
 
             {/* Course list */}
-            <div className="card" style={{ padding: 24 }}>
+            <div className="card" style={{ padding: 24, order: 1 }}>
               <h3
                 style={{
                   fontSize: 15,
@@ -1969,6 +3078,145 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+
+          {/* ─── Top 5 Learners + Completion Rates (bottom) ─── */}
+          {analytics &&
+            (analytics.topLearners?.length > 0 || analytics.courseCompletionRates?.length > 0) && (
+              <div
+                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 }}
+              >
+                {analytics.topLearners?.length > 0 && (
+                  <div className="card" style={{ padding: 20 }}>
+                    <h3
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        marginBottom: 14,
+                      }}
+                    >
+                      🏅 Top 5 Learners
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {analytics.topLearners.map((l, i) => (
+                        <div
+                          key={l.userId}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            padding: '8px 10px',
+                            borderRadius: 10,
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 26,
+                              height: 26,
+                              borderRadius: 8,
+                              background:
+                                i === 0
+                                  ? '#FFD700'
+                                  : i === 1
+                                    ? '#A8A9AD'
+                                    : i === 2
+                                      ? '#CD7F32'
+                                      : 'var(--primary-light)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              flexShrink: 0,
+                              color: i < 3 ? '#fff' : 'var(--primary)',
+                            }}
+                          >
+                            {i + 1}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {l.name}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                              {l.hospital ?? '-'}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)' }}>
+                              {Math.round(l.totalSeconds / 60)} นาที
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                              {l.certCount} ใบ
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analytics.courseCompletionRates?.length > 0 && (
+                  <div className="card" style={{ padding: 20 }}>
+                    <h3
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        marginBottom: 14,
+                      }}
+                    >
+                      📊 อัตราจบคอร์ส
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {analytics.courseCompletionRates.map((c) => (
+                        <div key={c.courseId}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontSize: 12,
+                              color: 'var(--text-primary)',
+                              marginBottom: 4,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1,
+                                marginRight: 8,
+                              }}
+                            >
+                              {c.title}
+                            </span>
+                            <span
+                              style={{ fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}
+                            >
+                              {c.rate}%
+                            </span>
+                          </div>
+                          <div className="progress-track" style={{ height: 6 }}>
+                            <div className="progress-fill" style={{ width: `${c.rate}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
         </>
       )}
     </div>

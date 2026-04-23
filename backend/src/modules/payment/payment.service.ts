@@ -1,55 +1,30 @@
 import prisma from '../../lib/prisma';
 
 /**
- * Simulated payment service.
- * In production, replace `simulateCharge` with a real gateway call (Omise, Stripe, etc.).
+ * QR PromptPay payment service (mock).
+ * In production, integrate with a real gateway (Omise, Stripe, etc.)
+ * and handle webhook callbacks to mark orders as PAID.
  */
 
-export type CardInput = {
-  number: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cvv: string;
-  name: string;
-};
-
-/** Simulate a card charge — always succeeds unless card number starts with "4000000000000002" */
-async function simulateCharge(
-  amount: number,
-  card: CardInput,
-): Promise<{ success: boolean; ref: string; last4: string; brand: string }> {
-  const last4 = card.number.replace(/\s/g, '').slice(-4);
-  const brand = card.number.startsWith('4')
-    ? 'VISA'
-    : card.number.startsWith('5')
-      ? 'MASTERCARD'
-      : 'CARD';
-
-  // Simulate decline for test card 4000000000000002
-  if (card.number.replace(/\s/g, '') === '4000000000000002') {
-    return { success: false, ref: '', last4, brand };
-  }
-
-  // Simulate 200ms network delay
-  await new Promise((r) => setTimeout(r, 200));
-
+/** Simulate QR payment confirmation — always succeeds in demo mode */
+async function simulateQRConfirm(amount: number): Promise<{ success: boolean; ref: string }> {
+  await new Promise((r) => setTimeout(r, 300));
   return {
     success: true,
-    ref: `SIM-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-    last4,
-    brand,
+    ref: `QR-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
   };
 }
 
 export const paymentService = {
-  /** Check if a user already has access to a course (free or already purchased) */
+  /** Check if a user already has access to a course (free, admin, or already purchased) */
   async hasAccess(userId: string, courseId: string): Promise<boolean> {
-    const course = await prisma.course.findUnique({
-      where: { id: courseId },
-      select: { price: true },
-    });
+    const [course, user] = await Promise.all([
+      prisma.course.findUnique({ where: { id: courseId }, select: { price: true } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+    ]);
     if (!course) return false;
-    if (!course.price) return true; // free course
+    if (!course.price) return true;
+    if (user?.role === 'ADMIN') return true;
 
     const paid = await prisma.order.findFirst({
       where: { userId, courseId, status: 'PAID' },
@@ -57,8 +32,8 @@ export const paymentService = {
     return !!paid;
   },
 
-  /** Purchase a course with a credit card */
-  async purchaseCourse(userId: string, courseId: string, card: CardInput) {
+  /** Purchase a course via QR PromptPay (mock confirmation) */
+  async purchaseCourse(userId: string, courseId: string) {
     const course = await prisma.course.findUnique({
       where: { id: courseId },
       select: { id: true, title: true, price: true, isActive: true },
@@ -68,29 +43,26 @@ export const paymentService = {
     if (!course.price)
       throw Object.assign(new Error('Course is free — no payment needed'), { status: 400 });
 
-    // Idempotency: if already paid, return existing order
+    // Idempotency: already paid
     const existing = await prisma.order.findFirst({ where: { userId, courseId, status: 'PAID' } });
     if (existing) return existing;
 
-    // Create pending order
     const order = await prisma.order.create({
       data: { userId, courseId, amount: course.price, status: 'PENDING' },
     });
 
-    const charge = await simulateCharge(course.price, card);
+    const result = await simulateQRConfirm(course.price);
 
-    if (!charge.success) {
+    if (!result.success) {
       await prisma.order.update({ where: { id: order.id }, data: { status: 'FAILED' } });
-      throw Object.assign(new Error('Payment declined'), { status: 402 });
+      throw Object.assign(new Error('QR payment failed'), { status: 402 });
     }
 
     return prisma.order.update({
       where: { id: order.id },
       data: {
         status: 'PAID',
-        paymentRef: charge.ref,
-        cardLast4: charge.last4,
-        cardBrand: charge.brand,
+        paymentRef: result.ref,
         paidAt: new Date(),
       },
     });

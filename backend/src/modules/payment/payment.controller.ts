@@ -14,9 +14,7 @@ export const paymentController = {
 
   async purchase(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { card } = req.body;
-      if (!card) return res.status(400).json({ message: 'Card information required' });
-      const order = await paymentService.purchaseCourse(req.user!.id, req.params.courseId, card);
+      const order = await paymentService.purchaseCourse(req.user!.id, req.params.courseId);
       res.status(201).json(order);
     } catch (err) {
       next(err);

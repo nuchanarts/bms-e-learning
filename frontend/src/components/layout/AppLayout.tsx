@@ -1,24 +1,172 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage, LANGUAGES } from '../../contexts/LanguageContext';
-import { useCart } from '../../contexts/CartContext';
+
+// ── SVG Icons ──────────────────────────────────────────────
+const IconDashboard = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+  </svg>
+);
+const IconBook = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+);
+const IconAward = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="8" r="6" />
+    <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+  </svg>
+);
+const IconHelp = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+const IconLogout = () => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+const IconBell = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+const IconAdmin = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+const IconMenu = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+  >
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
+// ── Breadcrumb map ─────────────────────────────────────────
+const BREADCRUMB: Record<string, string> = {
+  '/dashboard': 'แดชบอร์ด',
+  '/courses': 'คอร์สเรียน',
+  '/certificates': 'ประกาศนียบัตร',
+  '/help': 'ช่วยเหลือ',
+  '/admin': 'ผู้ดูแลระบบ',
+  '/cart': 'ตะกร้าสินค้า',
+  '/profile': 'โปรไฟล์',
+};
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { t, lang, setLang } = useLanguage();
-  const { count: cartCount } = useCart();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
-  const langRef = useRef<HTMLDivElement>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const navItems = [
-    { to: '/dashboard', icon: '🏠', label: t.nav_dashboard },
-    { to: '/courses', icon: '🎓', label: t.nav_courses },
-    { to: '/certificates', icon: '🏆', label: t.nav_certificates },
-    { to: '/help', icon: '💬', label: t.nav_help },
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
+
+  const mainNav = [
+    { to: '/dashboard', icon: <IconDashboard />, label: 'แดชบอร์ด' },
+    { to: '/courses', icon: <IconBook />, label: 'คอร์สเรียน' },
+    { to: '/certificates', icon: <IconAward />, label: 'ประกาศนียบัตร' },
+  ];
+
+  const systemNav = [
+    { to: '/help', icon: <IconHelp />, label: 'ช่วยเหลือ' },
+    ...(user?.role === 'ADMIN'
+      ? [{ to: '/admin', icon: <IconAdmin />, label: 'ผู้ดูแลระบบ' }]
+      : []),
   ];
 
   const handleLogout = () => {
@@ -26,392 +174,319 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     navigate('/login');
   };
 
-  const allNav = [
-    ...navItems,
-    ...(user?.role === 'ADMIN' ? [{ to: '/admin', icon: '⚙️', label: t.nav_admin }] : []),
-  ];
+  // Breadcrumb: "กรมสนับสนุนบริการสุขภาพ / ..."
+  const matchedPath = Object.keys(BREADCRUMB).find((k) => pathname.startsWith(k)) ?? '/dashboard';
+  const pageName = BREADCRUMB[matchedPath] ?? 'หน้าหลัก';
+  const userInitial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
+  // Short workplace from name or default
+  const workplace = 'รพ.สต.บ้านสวน';
 
-  const currentLang = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
+  const SidebarContent = () => (
+    <>
+      {/* ── Logo ── */}
+      <div className="sb-logo">
+        <div className="sb-logo-icon">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+        </div>
+        <div>
+          <div className="sb-logo-title">BGS E-Learning</div>
+          <div className="sb-logo-sub">ระบบ E-Learning</div>
+        </div>
+      </div>
 
-  // Close lang dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (langRef.current && !langRef.current.contains(e.target as Node)) {
-        setLangOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+      {/* ── User Profile ── */}
+      <div className="sb-user">
+        <div className="sb-user-avatar">{userInitial}</div>
+        <div className="sb-user-info">
+          <div className="sb-user-name">{user?.name}</div>
+          <div className="sb-user-sub">{workplace}</div>
+        </div>
+      </div>
+
+      {/* ── Main Nav ── */}
+      <div className="sb-section-label">เมนูหลัก</div>
+      {mainNav.map((item) => {
+        const active = pathname.startsWith(item.to);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`sb-nav-item ${active ? 'active' : ''}`}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="sb-nav-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+
+      {/* ── System Nav ── */}
+      <div className="sb-section-label" style={{ marginTop: 20 }}>
+        ทั่วไป
+      </div>
+      {systemNav.map((item) => {
+        const active = pathname.startsWith(item.to);
+        return (
+          <Link
+            key={item.label}
+            to={item.to}
+            className={`sb-nav-item ${active ? 'active' : ''}`}
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="sb-nav-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+      {/* ── Logout ── */}
+      <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+        <button
+          data-testid="logout-button"
+          className="sb-logout"
+          onClick={() => {
+            setMobileOpen(false);
+            handleLogout();
+          }}
+        >
+          <IconLogout />
+          <span>ออกจากระบบ</span>
+        </button>
+      </div>
+    </>
+  );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* ── TOP NAVBAR ── */}
-      <nav className="navbar">
-        <div className="navbar-inner">
-          {/* Mobile hamburger */}
-          <button
-            className="mobile-hamburger"
-            onClick={() => setMobileOpen(true)}
-            aria-label="เปิดเมนู"
-          >
-            ☰
-          </button>
+    <div className="app-shell">
+      {/* ── SIDEBAR (desktop) ── */}
+      <aside className="sidebar">
+        <SidebarContent />
+      </aside>
 
-          {/* Logo */}
-          <Link to="/dashboard" className="navbar-logo">
-            <div className="navbar-logo-icon">🏥</div>
-            <div className="navbar-logo-text">
-              <span className="navbar-logo-title">รพ.สต. Learning Hub</span>
-              <span className="navbar-logo-sub">{t.nav_platform_sub}</span>
+      {/* ── MOBILE DRAWER ── */}
+      {mobileOpen && (
+        <div className="mobile-overlay" onClick={() => setMobileOpen(false)}>
+          <aside className="sidebar sidebar-mobile" onClick={(e) => e.stopPropagation()}>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
+      {/* ── MAIN AREA ── */}
+      <div className="main-area">
+        {/* Top Bar */}
+        <header className="topbar">
+          <div className="topbar-left">
+            <button
+              className="topbar-hamburger"
+              onClick={() => setMobileOpen(true)}
+              aria-label="เมนู"
+            >
+              <IconMenu />
+            </button>
+            <div className="topbar-breadcrumb">
+              <span className="topbar-bc-parent">กรมสนับสนุนบริการสุขภาพ</span>
+              <span className="topbar-bc-sep">/</span>
+              <span className="topbar-bc-current">{pageName}</span>
             </div>
-          </Link>
-
-          {/* Desktop Nav links */}
-          <nav className="navbar-links">
-            {allNav.map((item) => {
-              const active = pathname.startsWith(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`navbar-link ${active ? 'active' : ''}`}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Cart icon */}
-          <Link
-            to="/cart"
-            style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: cartCount > 0 ? 'var(--primary-light)' : 'transparent',
-              border: `1.5px solid ${cartCount > 0 ? 'var(--border-strong)' : 'var(--border)'}`,
-              textDecoration: 'none',
-              fontSize: 18,
-              flexShrink: 0,
-              transition: 'all 0.18s',
-            }}
-            title="ตะกร้าสินค้า"
-          >
-            🛒
-            {cartCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -6,
-                  right: -6,
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: 'var(--primary)',
-                  color: '#fff',
-                  fontSize: 10,
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </Link>
-
-          {/* Right area: User → Language (far-right) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* User area */}
-            <div className="navbar-user">
-              <div className="navbar-avatar" title={user?.name}>
-                {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
-              </div>
-              <span className="navbar-user-name">{user?.name}</span>
-              <button data-testid="logout-button" className="navbar-logout" onClick={handleLogout}>
-                {t.nav_logout}
-              </button>
-            </div>
-
-            {/* ── Language Selector (far right) ── */}
-            <div ref={langRef} style={{ position: 'relative' }}>
+          </div>
+          <div className="topbar-right">
+            <button className="topbar-bell" aria-label="การแจ้งเตือน">
+              <IconBell />
+              <span className="topbar-bell-dot" />
+            </button>
+            <div className="topbar-user" ref={dropdownRef} style={{ position: 'relative' }}>
               <button
-                onClick={() => setLangOpen((o) => !o)}
-                title="เปลี่ยนภาษา / Change Language"
+                onClick={() => setDropdownOpen((o) => !o)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 5,
-                  padding: '5px 9px 5px 7px',
-                  borderRadius: 10,
-                  border: `1.5px solid ${langOpen ? 'var(--primary)' : 'var(--border)'}`,
-                  background: langOpen ? 'rgba(123,104,238,0.08)' : 'var(--card)',
+                  gap: 10,
+                  background: 'none',
+                  border: 'none',
                   cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                  transition: 'border-color 0.15s, background 0.15s',
+                  padding: '4px 6px',
+                  borderRadius: 10,
                 }}
               >
-                <span style={{ fontSize: 17, lineHeight: 1 }}>{currentLang.flag}</span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: langOpen ? 'var(--primary)' : 'var(--text-primary)',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  {currentLang.code.toUpperCase()}
-                </span>
+                <div className="topbar-avatar">{userInitial}</div>
+                <div className="topbar-user-info">
+                  <div className="topbar-user-name">{user?.name}</div>
+                  <div className="topbar-user-role">
+                    {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าพนักงานสาธารณสุข'}
+                  </div>
+                </div>
                 <svg
-                  width="8"
-                  height="8"
-                  viewBox="0 0 8 8"
-                  style={{
-                    transform: langOpen ? 'rotate(180deg)' : 'rotate(0)',
-                    transition: 'transform 0.2s',
-                    opacity: 0.45,
-                  }}
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--text-muted)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ flexShrink: 0 }}
                 >
-                  <path
-                    d="M1 2.5l3 3 3-3"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    fill="none"
-                    strokeLinecap="round"
-                  />
+                  <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
 
-              {langOpen && (
+              {dropdownOpen && (
                 <div
                   style={{
                     position: 'absolute',
                     top: 'calc(100% + 8px)',
                     right: 0,
-                    background: '#ffffff',
-                    border: '1px solid #E5E7EB',
+                    background: '#fff',
+                    border: '1px solid var(--border)',
                     borderRadius: 14,
-                    boxShadow: '0 16px 40px rgba(0,0,0,0.18)',
-                    zIndex: 300,
-                    minWidth: 175,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    minWidth: 220,
+                    zIndex: 200,
                     overflow: 'hidden',
-                    padding: '6px',
                   }}
                 >
+                  {/* User info header */}
                   <div
                     style={{
-                      padding: '4px 10px 8px',
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: '#9CA3AF',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
+                      padding: '14px 16px',
+                      borderBottom: '1px solid var(--border)',
+                      background: 'var(--bg)',
                     }}
                   >
-                    🌐 Language
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                      {user?.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {user?.email}
+                    </div>
                   </div>
-                  {LANGUAGES.map((l) => (
+                  {/* Menu items */}
+                  <div style={{ padding: '6px 0' }}>
+                    <Link
+                      to="/profile"
+                      onClick={() => setDropdownOpen(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 16px',
+                        fontSize: 14,
+                        color: 'var(--text-primary)',
+                        textDecoration: 'none',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      โปรไฟล์
+                    </Link>
+                    <Link
+                      to="/profile"
+                      onClick={() => setDropdownOpen(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 16px',
+                        fontSize: 14,
+                        color: 'var(--text-primary)',
+                        textDecoration: 'none',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
+                      ตั้งค่าบัญชี
+                    </Link>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                     <button
-                      key={l.code}
                       onClick={() => {
-                        setLang(l.code);
-                        setLangOpen(false);
+                        setDropdownOpen(false);
+                        handleLogout();
                       }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: 10,
-                        width: '100%',
-                        padding: '8px 10px',
+                        padding: '10px 16px',
+                        fontSize: 14,
+                        color: '#DC2626',
+                        background: 'none',
                         border: 'none',
-                        borderRadius: 9,
-                        background: l.code === lang ? '#EDE9FE' : '#ffffff',
                         cursor: 'pointer',
-                        fontSize: 13,
-                        fontWeight: l.code === lang ? 700 : 400,
-                        color: l.code === lang ? '#7B68EE' : '#1F2937',
+                        width: '100%',
                         fontFamily: 'inherit',
-                        textAlign: 'left',
-                        transition: 'background 0.1s',
                       }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#FEF2F2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <span style={{ fontSize: 20 }}>{l.flag}</span>
-                      <span style={{ flex: 1 }}>{l.label}</span>
-                      {l.code === lang && (
-                        <span style={{ fontSize: 13, color: 'var(--primary)' }}>✓</span>
-                      )}
+                      <IconLogout />
+                      ออกจากระบบ
                     </button>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </nav>
+        </header>
 
-      {/* ── MOBILE DRAWER ── */}
-      <div className={`mobile-drawer ${mobileOpen ? 'open' : ''}`}>
-        <div className="mobile-drawer-overlay" onClick={() => setMobileOpen(false)} />
-        <div className="mobile-drawer-panel">
-          {/* Logo */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '0 6px 20px',
-              borderBottom: '1px solid var(--border)',
-              marginBottom: 8,
-            }}
-          >
-            <div
-              className="navbar-logo-icon"
-              style={{ width: 36, height: 36, borderRadius: 10, fontSize: 16 }}
-            >
-              🏥
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
-                รพ.สต. Learning Hub
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.nav_platform_sub}</div>
-            </div>
-          </div>
+        {/* Page Content */}
+        <main className="page-content anim-in">{children}</main>
 
-          {/* Language selector (mobile) */}
-          <div
-            style={{
-              padding: '0 6px 12px',
-              borderBottom: '1px solid var(--border)',
-              marginBottom: 8,
-            }}
-          >
-            <div
-              style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}
-            >
-              🌐 ภาษา / Language
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => setLang(l.code)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '4px 10px',
-                    borderRadius: 16,
-                    border: `1px solid ${l.code === lang ? 'var(--primary)' : 'var(--border)'}`,
-                    background: l.code === lang ? 'var(--primary)' : 'transparent',
-                    color: l.code === lang ? '#fff' : 'var(--text-primary)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span>{l.flag}</span>
-                  <span>{l.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {allNav.map((item) => {
-            const active = pathname.startsWith(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`mobile-nav-link ${active ? 'active' : ''}`}
-                onClick={() => setMobileOpen(false)}
-              >
-                <span style={{ fontSize: 18 }}>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-
-          {/* User info */}
-          <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                borderRadius: 12,
-                background: 'var(--bg)',
-                marginBottom: 8,
-              }}
-            >
-              <div className="navbar-avatar" style={{ width: 32, height: 32, fontSize: 13 }}>
-                {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {user?.name}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {user?.role === 'ADMIN' ? t.nav_admin_role : t.nav_staff}
-                </div>
+        {/* Footer */}
+        <footer className="site-footer">
+          <div className="site-footer-inner">
+            <div className="site-footer-logos">
+              <img
+                src="/logos/bgs-logo.png"
+                alt="Bangkok Global Software"
+                className="site-footer-logo-img"
+              />
+              <img src="/logos/bms-icon.png" alt="BMS" className="site-footer-logo-img" />
+              <div className="site-footer-copy">
+                © {new Date().getFullYear()} Bangkok Global Software (BGS) · พัฒนาโดย BMS Group ·
+                สงวนลิขสิทธิ์
               </div>
             </div>
-            <button
-              data-testid="logout-button-mobile"
-              onClick={() => {
-                setMobileOpen(false);
-                handleLogout();
-              }}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: 10,
-                border: '1px solid rgba(239,68,68,0.2)',
-                background: 'rgba(239,68,68,0.06)',
-                color: '#DC2626',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              {t.nav_logout}
-            </button>
           </div>
-        </div>
+        </footer>
       </div>
-
-      {/* ── PAGE CONTENT ── */}
-      <main className="page-wrapper anim-in">{children}</main>
-
-      {/* ── FOOTER ── */}
-      <footer className="site-footer">
-        <div className="site-footer-inner">
-          <div className="site-footer-logos">
-            <img
-              src="/logos/bgs-logo.png"
-              alt="Bangkok Global Software"
-              className="site-footer-logo-img"
-            />
-            <img src="/logos/bms-icon.png" alt="BMS" className="site-footer-logo-img" />
-          </div>
-          <div className="site-footer-copy">
-            © {new Date().getFullYear()} Bangkok Global Software (BGS) · พัฒนาโดย BMS Group ·
-            สงวนลิขสิทธิ์
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

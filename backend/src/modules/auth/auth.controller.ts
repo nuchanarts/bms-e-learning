@@ -1,12 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuthRequest } from '../../middleware/auth.middleware';
 import { authService } from './auth.service';
 import { otpService } from './otp.service';
 
 export const authController = {
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password, name, cid, hospital, position } = req.body;
-      const result = await authService.register(email, password, name, cid, hospital, position);
+      const { email, password, name, cid, hospital, position, hospcode } = req.body;
+      const result = await authService.register(
+        email,
+        password,
+        name,
+        cid,
+        hospital,
+        position,
+        hospcode,
+      );
       res.status(201).json(result);
     } catch (err) {
       next(err);
@@ -62,6 +71,26 @@ export const authController = {
       const { refreshToken } = req.body;
       const tokens = await authService.refresh(refreshToken);
       res.json(tokens);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateMe(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { name, hospital, position } = req.body;
+      const user = await authService.updateProfile(req.user!.id, { name, hospital, position });
+      res.json(user);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async loginByCid(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { hospcode, cid } = req.body;
+      const result = await authService.loginByCid(hospcode, cid);
+      res.json(result);
     } catch (err) {
       next(err);
     }

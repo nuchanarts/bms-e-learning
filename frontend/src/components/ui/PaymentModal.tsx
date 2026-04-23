@@ -1,5 +1,40 @@
-import { useState } from 'react';
-import { paymentService, type CardInput } from '../../services/paymentService';
+import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
+import { paymentService } from '../../services/paymentService';
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, '0');
+}
+function crc16(data: string): number {
+  let crc = 0xffff;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+  }
+  return crc & 0xffff;
+}
+function buildPromptPayPayload(phone: string, amount: number): string {
+  const normalized = '0066' + phone.replace(/\D/g, '').replace(/^0/, '');
+  const guid = 'A000000677010111';
+  const accountTag = '01' + pad2(normalized.length) + normalized;
+  const guidTag = '00' + pad2(guid.length) + guid;
+  const merchantInfo = guidTag + accountTag;
+  const amountStr = amount.toFixed(2);
+  const body = [
+    '000201',
+    '010212',
+    '29' + pad2(merchantInfo.length) + merchantInfo,
+    '5802TH',
+    '5303764',
+    '54' + pad2(amountStr.length) + amountStr,
+    '6304',
+  ].join('');
+  return body + crc16(body).toString(16).toUpperCase().padStart(4, '0');
+}
+
+const PROMPTPAY_NUMBER = '0800000000';
 
 interface PaymentModalProps {
   courseId: string;
@@ -9,14 +44,6 @@ interface PaymentModalProps {
   onClose: () => void;
 }
 
-function formatCardNumber(value: string): string {
-  return value
-    .replace(/\D/g, '')
-    .slice(0, 16)
-    .replace(/(.{4})/g, '$1 ')
-    .trim();
-}
-
 export function PaymentModal({
   courseId,
   courseTitle,
@@ -24,26 +51,26 @@ export function PaymentModal({
   onSuccess,
   onClose,
 }: PaymentModalProps) {
-  const [card, setCard] = useState<CardInput>({
-    number: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    name: '',
-  });
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const payload = buildPromptPayPayload(PROMPTPAY_NUMBER, price);
+    QRCode.toDataURL(payload, { width: 220, margin: 2, errorCorrectionLevel: 'M' })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(''));
+  }, [price]);
+
+  const handleConfirm = async () => {
     setError('');
     setLoading(true);
     try {
-      await paymentService.purchase(courseId, card);
+      await paymentService.purchase(courseId);
       onSuccess();
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'ชำระเงินไม่สำเร็จ กรุณาตรวจสอบข้อมูลบัตร';
-      setError(msg);
+      setError(err?.response?.data?.message ?? 'ชำระเงินไม่สำเร็จ กรุณาลองใหม่');
     } finally {
       setLoading(false);
     }
@@ -54,7 +81,7 @@ export function PaymentModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'rgba(0,0,0,0.6)',
         zIndex: 500,
         display: 'flex',
         alignItems: 'center',
@@ -70,7 +97,7 @@ export function PaymentModal({
           background: '#fff',
           borderRadius: 20,
           width: '100%',
-          maxWidth: 420,
+          maxWidth: 400,
           boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
           overflow: 'hidden',
         }}
@@ -78,17 +105,17 @@ export function PaymentModal({
         {/* Header */}
         <div
           style={{
-            background: 'linear-gradient(135deg,#7B68EE,#9B8FFF)',
+            background: 'linear-gradient(135deg,#1B2B5E,#2563EB)',
             padding: '20px 24px',
             color: '#fff',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 2 }}>
-                ชำระเงินเพื่อเข้าเรียน
+              <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 2 }}>
+                ชำระเงินผ่าน QR PromptPay
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>{courseTitle}</div>
+              <div style={{ fontSize: 15, fontWeight: 800 }}>{courseTitle}</div>
             </div>
             <button
               onClick={onClose}
@@ -111,138 +138,130 @@ export function PaymentModal({
               marginTop: 12,
               background: 'rgba(255,255,255,0.15)',
               borderRadius: 10,
-              padding: '8px 14px',
+              padding: '8px 16px',
               display: 'inline-block',
             }}
           >
-            <span style={{ fontSize: 22, fontWeight: 800 }}>฿{price.toLocaleString()}</span>
+            <span style={{ fontSize: 26, fontWeight: 800 }}>฿{price.toLocaleString()}</span>
           </div>
         </div>
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}
-        >
+        {/* Body */}
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {error && (
             <div className="alert-error">
               <span>⚠️</span> {error}
             </div>
           )}
 
-          {/* Demo hint */}
+          {/* QR Code */}
           <div
             style={{
-              padding: '8px 12px',
+              background: '#F0FDF4',
+              border: '1.5px solid #BBF7D0',
+              borderRadius: 14,
+              padding: '16px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 12, color: '#16A34A', fontWeight: 700, marginBottom: 10 }}>
+              📱 สแกน QR ด้วยแอปธนาคาร / TrueMoney / เป๋าตัง
+            </div>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="PromptPay QR"
+                style={{
+                  width: 190,
+                  height: 190,
+                  display: 'block',
+                  margin: '0 auto',
+                  border: '2px solid #BBF7D0',
+                  borderRadius: 10,
+                  padding: 4,
+                  background: '#fff',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 190,
+                  height: 190,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  border: '2px solid #BBF7D0',
+                  borderRadius: 10,
+                }}
+              >
+                <div className="spinner" />
+              </div>
+            )}
+          </div>
+
+          {/* Demo notice */}
+          <div
+            style={{
+              padding: '7px 12px',
               background: '#FEF3C7',
               border: '1px solid #FDE68A',
               borderRadius: 8,
-              fontSize: 12,
+              fontSize: 11,
               color: '#92400E',
+              textAlign: 'center',
             }}
           >
-            💡 <strong>Demo mode:</strong> ใช้หมายเลขบัตรใดก็ได้เพื่อทดสอบ (ปฏิเสธ:{' '}
-            <code>4000 0000 0000 0002</code>)
+            💡 <strong>Demo:</strong> กด "ยืนยันชำระแล้ว" เพื่อจำลองการชำระเงิน
           </div>
 
-          {/* Card number */}
-          <div className="form-group">
-            <label className="form-label">หมายเลขบัตร</label>
+          {/* Checkbox */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              cursor: 'pointer',
+              fontSize: 13,
+              padding: '9px 12px',
+              background: confirmed ? '#F0FDF4' : 'var(--bg)',
+              border: `1.5px solid ${confirmed ? '#BBF7D0' : 'var(--border)'}`,
+              borderRadius: 10,
+              transition: 'all 0.15s',
+            }}
+          >
             <input
-              className="form-input"
-              type="text"
-              inputMode="numeric"
-              placeholder="0000 0000 0000 0000"
-              value={card.number}
-              onChange={(e) => setCard({ ...card, number: formatCardNumber(e.target.value) })}
-              maxLength={19}
-              required
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#10B981' }}
             />
-          </div>
+            โอนเงินเรียบร้อยแล้ว
+          </label>
 
-          {/* Cardholder name */}
-          <div className="form-group">
-            <label className="form-label">ชื่อบนบัตร</label>
-            <input
-              className="form-input"
-              type="text"
-              placeholder="FIRSTNAME LASTNAME"
-              value={card.name}
-              onChange={(e) => setCard({ ...card, name: e.target.value.toUpperCase() })}
-              required
-            />
-          </div>
-
-          {/* Expiry + CVV */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-            <div className="form-group">
-              <label className="form-label">เดือน</label>
-              <input
-                className="form-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="MM"
-                maxLength={2}
-                value={card.expiryMonth}
-                onChange={(e) =>
-                  setCard({ ...card, expiryMonth: e.target.value.replace(/\D/g, '').slice(0, 2) })
-                }
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">ปี</label>
-              <input
-                className="form-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="YY"
-                maxLength={2}
-                value={card.expiryYear}
-                onChange={(e) =>
-                  setCard({ ...card, expiryYear: e.target.value.replace(/\D/g, '').slice(0, 2) })
-                }
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">CVV</label>
-              <input
-                className="form-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="123"
-                maxLength={4}
-                value={card.cvv}
-                onChange={(e) =>
-                  setCard({ ...card, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) })
-                }
-                required
-              />
-            </div>
-          </div>
-
-          {/* Submit */}
           <button
-            type="submit"
             className="btn-primary"
-            disabled={loading}
-            style={{ width: '100%', marginTop: 4 }}
+            disabled={!confirmed || loading}
+            style={{
+              width: '100%',
+              background: confirmed ? 'linear-gradient(135deg,#10B981,#34D399)' : undefined,
+            }}
+            onClick={handleConfirm}
           >
             {loading ? (
               <>
-                <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                กำลังดำเนินการ...
+                <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />{' '}
+                กำลังตรวจสอบ...
               </>
             ) : (
-              <>💳 ชำระ ฿{price.toLocaleString()}</>
+              <>✅ ยืนยันชำระแล้ว</>
             )}
           </button>
 
           <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>
-            🔒 ข้อมูลบัตรของคุณถูกเข้ารหัสอย่างปลอดภัย
+            🔒 ธุรกรรมนี้ปลอดภัยและเข้ารหัส
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

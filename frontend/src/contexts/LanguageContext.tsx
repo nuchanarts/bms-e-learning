@@ -21,7 +21,7 @@ const TH = {
   nav_help: 'ช่วยเหลือ',
   nav_admin: 'Admin Panel',
   nav_logout: 'ออกจากระบบ',
-  nav_platform_sub: 'แพลตฟอร์มสื่อการสอนออนไลน์',
+  nav_platform_sub: 'ระบบ E-Learning สำหรับ รพ.สต. และ รพ.',
   nav_staff: 'เจ้าหน้าที่ รพ.สต.',
   nav_admin_role: 'ผู้ดูแลระบบ',
 
@@ -36,9 +36,9 @@ const TH = {
   login_no_account: 'ยังไม่มีบัญชี?',
   login_register_link: 'สมัครสมาชิกฟรี',
   login_error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
-  login_tagline: 'เรียนรู้ทักษะใหม่\nสำหรับเจ้าหน้าที่\nรพ.สต. ทั่วประเทศ',
-  login_tagline_sub: 'พัฒนาศักยภาพด้านสาธารณสุขชุมชน\nด้วยคอร์สเรียนออนไลน์คุณภาพสูง',
-  login_feat1: 'คอร์สเรียนครบครันสำหรับ รพ.สต.',
+  login_tagline: 'ระบบ E-Learning\nสำหรับบุคลากร\nรพ.สต. และ รพ.',
+  login_tagline_sub: 'โซลูชันซอฟต์แวร์สำหรับระบบสาธารณสุข\nโดย Bangkok Global Software Co., Ltd.',
+  login_feat1: 'คอร์สเรียนสำหรับบุคลากร รพ.สต. และ รพ.',
   login_feat2: 'ใบประกาศรับรองผลการเรียน',
   login_feat3: 'ติดตามความก้าวหน้าการเรียน',
 

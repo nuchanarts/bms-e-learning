@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { certificateService } from './certificate.service';
-import fs from 'fs';
 
 export const certificateController = {
   async getOrGenerate(req: AuthRequest, res: Response, next: NextFunction) {
@@ -15,11 +14,9 @@ export const certificateController = {
 
   async download(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const cert = await certificateService.getOrGenerate(req.user!.id, req.params.courseId);
-      if (!fs.existsSync(cert.filePath)) {
-        return res.status(404).json({ message: 'Certificate file not found' });
-      }
-      res.download(cert.filePath);
+      const html = await certificateService.downloadHtml(req.user!.id, req.params.courseId);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
     } catch (err) {
       next(err);
     }

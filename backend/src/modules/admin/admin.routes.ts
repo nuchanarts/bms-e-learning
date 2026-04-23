@@ -8,10 +8,15 @@ router.use(authenticate, requireAdmin);
 router.get('/analytics', adminController.getAnalytics);
 
 // Courses
+router.get('/courses', adminController.getAllCourses);
 router.post('/courses', adminController.createCourse);
 router.put('/courses/reorder', adminController.reorderCourses);
+router.put('/courses/:id/featured', adminController.toggleFeatured);
 router.put('/courses/:id', adminController.updateCourse);
 router.delete('/courses/:id', adminController.deleteCourse);
+
+// Ratings (admin delete)
+router.delete('/ratings/:id', adminController.deleteRating);
 
 // Videos
 router.post('/courses/:courseId/videos', adminController.addVideo);
@@ -40,5 +45,18 @@ router.get('/export/excel', adminController.exportExcel);
 
 // Orders
 router.get('/orders', adminController.listOrders);
+
+// Activity Feed
+router.get('/activity', adminController.getActivityFeed);
+
+// Announcements
+router.get('/announcements', adminController.listAnnouncements);
+router.post('/announcements', adminController.createAnnouncement);
+router.put('/announcements/:id', adminController.updateAnnouncement);
+router.delete('/announcements/:id', adminController.deleteAnnouncement);
+
+// Site Settings
+router.get('/settings', adminController.getSiteSettings);
+router.put('/settings', adminController.updateSiteSettings);
 
 export default router;

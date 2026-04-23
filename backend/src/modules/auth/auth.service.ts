@@ -48,6 +48,7 @@ export const authService = {
     cid?: string,
     hospital?: string,
     position?: string,
+    hospcode?: string,
   ) {
     const existing = await authRepository.findByEmail(email);
     if (existing) throw Object.assign(new Error('Email already registered'), { status: 409 });
@@ -66,6 +67,7 @@ export const authService = {
       name,
       cid,
       hospital,
+      hospcode,
       position,
     });
     const tokens = generateTokens(user.id, user.email, user.role);
@@ -101,6 +103,33 @@ export const authService = {
   async loginByEmail(email: string) {
     const user = await authRepository.findByEmail(email);
     if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+    const tokens = generateTokens(user.id, user.email, user.role);
+    return { user: formatUser(user), ...tokens };
+  },
+
+  async updateProfile(
+    userId: string,
+    data: { name?: string; hospital?: string; position?: string },
+  ) {
+    const user = await authRepository.updateById(userId, data);
+    return formatUser(user);
+  },
+
+  async loginByCid(hospcode: string, cid: string) {
+    if (!/^\d{5}$/.test(hospcode))
+      throw Object.assign(new Error('รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก'), { status: 400 });
+    if (!/^\d{13}$/.test(cid))
+      throw Object.assign(new Error('เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก'), { status: 400 });
+    const users = await authRepository.findByHospcodeAndCid(hospcode, cid);
+    if (users.length === 0)
+      throw Object.assign(
+        new Error('ไม่พบบัญชีผู้ใช้ กรุณาตรวจสอบรหัสสถานพยาบาลและเลขบัตรประชาชน'),
+        { status: 401 },
+      );
+    if (users.length > 1)
+      throw Object.assign(new Error('พบบัญชีซ้ำ กรุณาติดต่อผู้ดูแลระบบ'), { status: 409 });
+    const user = users[0];
+    if (!user.isActive) throw Object.assign(new Error('บัญชีถูกระงับการใช้งาน'), { status: 403 });
     const tokens = generateTokens(user.id, user.email, user.role);
     return { user: formatUser(user), ...tokens };
   },

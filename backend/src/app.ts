@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -11,7 +11,13 @@ import adminRoutes from './modules/admin/admin.routes';
 import quizRoutes from './modules/quiz/quiz.routes';
 import helpRoutes from './modules/help/help.routes';
 import paymentRoutes from './modules/payment/payment.routes';
+import hospitalRoutes from './modules/hospital/hospital.routes';
+import announcementsRoutes from './modules/admin/announcements.routes';
+import statsRoutes from './modules/stats/stats.routes';
+import ratingRoutes from './modules/rating/rating.routes';
+import bundleRoutes from './modules/bundle/bundle.routes';
 import { errorHandler } from './middleware/error.middleware';
+import prisma from './lib/prisma';
 
 const app = express();
 
@@ -29,6 +35,21 @@ app.use('/admin', adminRoutes);
 app.use('/quiz', quizRoutes);
 app.use('/help', helpRoutes);
 app.use('/payment', paymentRoutes);
+app.use('/hospitals', hospitalRoutes);
+app.use('/announcements', announcementsRoutes);
+app.use('/stats', statsRoutes);
+app.use('/ratings', ratingRoutes);
+app.use('/bundles', bundleRoutes);
+
+// Public site settings (categories, etc.)
+app.get('/settings/public', async (_req: Request, res: Response) => {
+  const rows = await prisma.siteSetting.findMany({ where: { key: { in: ['categories'] } } });
+  const m: Record<string, string> = {};
+  rows.forEach((r) => {
+    m[r.key] = r.value;
+  });
+  res.json({ categories: m['categories'] ?? '' });
+});
 
 app.use(errorHandler);
 

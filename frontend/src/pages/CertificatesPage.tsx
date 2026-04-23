@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
-import QRCode from 'qrcode';
+import { useEffect, useState } from 'react';
 import { certificateService, type Certificate } from '../services/certificateService';
 import { useLanguage } from '../contexts/LanguageContext';
+import api from '../lib/api';
 
 const TIER_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
   BRONZE: { label: 'Bronze', icon: '🥉', color: '#CD7F32' },
@@ -10,25 +10,26 @@ const TIER_CONFIG: Record<string, { label: string; icon: string; color: string }
   PLATINUM: { label: 'Platinum', icon: '💎', color: '#8B5CF6' },
 };
 
-function QRDisplay({ url }: { url: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, url, {
-        width: 80,
-        margin: 1,
-        color: { dark: '#4C1D95', light: '#fff' },
-      });
-    }
-  }, [url]);
-  return <canvas ref={canvasRef} style={{ borderRadius: 6 }} />;
-}
-
 export default function CertificatesPage() {
   const { t } = useLanguage();
   const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedQR, setExpandedQR] = useState<string | null>(null);
+  const [openingCert, setOpeningCert] = useState<string | null>(null);
+
+  const handleOpenCert = async (courseId: string) => {
+    setOpeningCert(courseId);
+    try {
+      const res = await api.get(`/certificates/${courseId}/download`, { responseType: 'text' });
+      const blob = new Blob([res.data], { type: 'text/html; charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+      alert('ไม่สามารถเปิดใบประกาศได้');
+    } finally {
+      setOpeningCert(null);
+    }
+  };
 
   useEffect(() => {
     certificateService
@@ -113,9 +114,6 @@ export default function CertificatesPage() {
           >
             {certs.map((cert) => {
               const tier = cert.tier ? TIER_CONFIG[cert.tier] : null;
-              const verifyUrl = cert.verifyToken
-                ? certificateService.verifyUrl(cert.verifyToken)
-                : null;
               return (
                 <div key={cert.id} className="cert-card">
                   <div className="cert-top">
@@ -177,90 +175,31 @@ export default function CertificatesPage() {
                       </p>
                     )}
 
-                    {/* QR Code section */}
-                    {verifyUrl && (
-                      <div style={{ marginBottom: 12 }}>
-                        <button
-                          onClick={() => setExpandedQR(expandedQR === cert.id ? null : cert.id)}
-                          style={{
-                            width: '100%',
-                            padding: '8px',
-                            borderRadius: 8,
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg)',
-                            cursor: 'pointer',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: 'var(--primary)',
-                            fontFamily: 'inherit',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          <span>🔍</span>
-                          <span>{expandedQR === cert.id ? 'ซ่อน QR Code' : 'แสดง QR ยืนยัน'}</span>
-                        </button>
-
-                        {expandedQR === cert.id && (
-                          <div
-                            style={{
-                              marginTop: 10,
-                              padding: 12,
-                              background: '#F5F3FF',
-                              borderRadius: 10,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              gap: 8,
-                            }}
-                          >
-                            <QRDisplay url={verifyUrl} />
-                            <div
-                              style={{
-                                fontSize: 10,
-                                color: 'var(--text-muted)',
-                                textAlign: 'center',
-                                wordBreak: 'break-all',
-                              }}
-                            >
-                              สแกน QR เพื่อยืนยันใบประกาศ
-                            </div>
-                            <button
-                              onClick={() => navigator.clipboard?.writeText(verifyUrl)}
-                              style={{
-                                fontSize: 11,
-                                color: 'var(--primary)',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                              }}
-                            >
-                              📋 คัดลอก Link ยืนยัน
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <a
-                      href={certificateService.downloadUrl(cert.courseId)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-secondary"
+                    <button
+                      onClick={() => handleOpenCert(cert.courseId)}
+                      disabled={openingCert === cert.courseId}
+                      className="btn-primary"
                       style={{
                         width: '100%',
-                        textAlign: 'center',
                         justifyContent: 'center',
-                        color: '#16A34A',
-                        borderColor: '#86EFAC',
-                        background: '#F0FDF4',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontFamily: 'inherit',
                       }}
                     >
-                      {t.certs_download}
-                    </a>
+                      {openingCert === cert.courseId ? (
+                        <>
+                          <span
+                            className="spinner"
+                            style={{ width: 14, height: 14, borderWidth: 2 }}
+                          />{' '}
+                          กำลังเปิด...
+                        </>
+                      ) : (
+                        '🏅 ดูใบประกาศ / พิมพ์'
+                      )}
+                    </button>
                   </div>
                 </div>
               );

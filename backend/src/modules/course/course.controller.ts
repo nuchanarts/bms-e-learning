@@ -13,6 +13,23 @@ export const courseController = {
     }
   },
 
+  async getRecommended(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      let position: string | undefined;
+      if (req.user?.id) {
+        const { default: prisma } = await import('../../lib/prisma');
+        const u = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { position: true },
+        });
+        position = u?.position ?? undefined;
+      }
+      res.json(await courseService.getRecommended(position));
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async getById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const course = await courseService.getById(req.params.id, req.user?.id);

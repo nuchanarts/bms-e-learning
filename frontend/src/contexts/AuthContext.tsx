@@ -20,8 +20,10 @@ interface AuthContextType {
     cid?: string,
     hospital?: string,
     position?: string,
+    hospcode?: string,
   ) => Promise<void>;
   logout: () => void;
+  updateProfile: (data: { name?: string; hospital?: string; position?: string }) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     cid?: string,
     hospital?: string,
     position?: string,
+    hospcode?: string,
   ) => {
     const { data } = await api.post('/auth/register', {
       email,
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cid,
       hospital,
       position,
+      hospcode,
     });
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('user', JSON.stringify(data.user));
@@ -72,8 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateProfile = async (data: { name?: string; hospital?: string; position?: string }) => {
+    const { data: updated } = await api.put('/auth/me', data);
+    const merged = { ...user!, ...updated };
+    localStorage.setItem('user', JSON.stringify(merged));
+    setUser(merged);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

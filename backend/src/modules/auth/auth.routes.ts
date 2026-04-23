@@ -5,10 +5,12 @@ import { authenticate, requireAdmin } from '../../middleware/auth.middleware';
 const router = Router();
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/login-by-cid', authController.loginByCid);
 router.post('/otp/verify', authController.verifyOtp);
 router.post('/otp/resend', authController.resendOtp);
 router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
+router.put('/me', authenticate, authController.updateMe);
 
 // Admin: toggle OTP
 router.post('/otp/toggle', authenticate, requireAdmin, async (req, res, next) => {

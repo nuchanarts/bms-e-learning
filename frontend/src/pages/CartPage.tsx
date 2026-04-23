@@ -1,52 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
-import { paymentService, type CardInput } from '../services/paymentService';
+import { paymentService } from '../services/paymentService';
+import QRCode from 'qrcode';
 
-function formatCardNumber(value: string): string {
-  return value
-    .replace(/\D/g, '')
-    .slice(0, 16)
-    .replace(/(.{4})/g, '$1 ')
-    .trim();
+function pad2(n: number) {
+  return n.toString().padStart(2, '0');
 }
+function crc16(data: string): number {
+  let crc = 0xffff;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+  }
+  return crc & 0xffff;
+}
+function buildPromptPayPayload(phone: string, amount: number): string {
+  const normalized = '0066' + phone.replace(/\D/g, '').replace(/^0/, '');
+  const guid = 'A000000677010111';
+  const accountTag = '01' + pad2(normalized.length) + normalized;
+  const guidTag = '00' + pad2(guid.length) + guid;
+  const merchantInfo = guidTag + accountTag;
+  const amountStr = amount.toFixed(2);
+  const body = [
+    '000201',
+    '010212',
+    '29' + pad2(merchantInfo.length) + merchantInfo,
+    '5802TH',
+    '5303764',
+    '54' + pad2(amountStr.length) + amountStr,
+    '6304',
+  ].join('');
+  return body + crc16(body).toString(16).toUpperCase().padStart(4, '0');
+}
+const PROMPTPAY_NUMBER = '0800000000';
 
 export default function CartPage() {
   const { items, remove, clear, total } = useCart();
   const navigate = useNavigate();
 
-  const [card, setCard] = useState<CardInput>({
-    number: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    name: '',
-  });
   const [step, setStep] = useState<'cart' | 'payment' | 'success'>('cart');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
   const [paidCourses, setPaidCourses] = useState<string[]>([]);
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (step === 'payment' && total > 0) {
+      const payload = buildPromptPayPayload(PROMPTPAY_NUMBER, total);
+      QRCode.toDataURL(payload, { width: 220, margin: 2, errorCorrectionLevel: 'M' })
+        .then(setQrDataUrl)
+        .catch(() => setQrDataUrl(''));
+    }
+  }, [step, total]);
+
+  const handleCheckout = async () => {
     setError('');
     setLoading(true);
     try {
-      const results = await Promise.all(
-        items.map((item) => paymentService.purchase(item.id, card)),
-      );
+      const results = await Promise.all(items.map((item) => paymentService.purchase(item.id)));
       setPaidCourses(results.map((r) => r.courseId));
       clear();
       setStep('success');
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'ชำระเงินไม่สำเร็จ กรุณาตรวจสอบข้อมูลบัตร';
-      setError(msg);
+      setError(err?.response?.data?.message ?? 'ชำระเงินไม่สำเร็จ กรุณาลองใหม่');
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Success ────────────────────────────────────────────────────────────
+  // ── Success ───────────────────────────────────────────────────────────────
   if (step === 'success') {
     return (
       <div className="anim-up" style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center' }}>
@@ -73,10 +97,10 @@ export default function CartPage() {
     );
   }
 
-  // ── Payment form ───────────────────────────────────────────────────────
+  // ── Payment (QR) ──────────────────────────────────────────────────────────
   if (step === 'payment') {
     return (
-      <div className="anim-up" style={{ maxWidth: 520, margin: '0 auto' }}>
+      <div className="anim-up" style={{ maxWidth: 460, margin: '0 auto' }}>
         <div className="breadcrumb" style={{ marginBottom: 20 }}>
           <button
             onClick={() => setStep('cart')}
@@ -88,18 +112,24 @@ export default function CartPage() {
         </div>
 
         <div className="card" style={{ overflow: 'hidden' }}>
-          {/* Header summary */}
+          {/* Header */}
           <div
-            style={{ background: 'var(--gradient-primary)', padding: '20px 24px', color: '#fff' }}
+            style={{
+              background: 'linear-gradient(135deg,#1B2B5E,#2563EB)',
+              padding: '20px 24px',
+              color: '#fff',
+            }}
           >
-            <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 4 }}>สรุปรายการ</div>
+            <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>
+              ชำระเงินผ่าน QR PromptPay
+            </div>
             {items.map((item) => (
               <div
                 key={item.id}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  fontSize: 14,
+                  fontSize: 13,
                   marginBottom: 4,
                 }}
               >
@@ -109,7 +139,7 @@ export default function CartPage() {
             ))}
             <div
               style={{
-                borderTop: '1px solid rgba(255,255,255,0.25)',
+                borderTop: '1px solid rgba(255,255,255,0.2)',
                 paddingTop: 10,
                 marginTop: 8,
                 display: 'flex',
@@ -121,17 +151,67 @@ export default function CartPage() {
             </div>
           </div>
 
-          {/* Card form */}
-          <form
-            onSubmit={handleCheckout}
-            style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}
-          >
+          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {error && (
               <div className="alert-error">
                 <span>⚠️</span> {error}
               </div>
             )}
 
+            {/* QR Code */}
+            <div
+              style={{
+                background: '#F0FDF4',
+                border: '1.5px solid #BBF7D0',
+                borderRadius: 14,
+                padding: '18px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 13, color: '#16A34A', fontWeight: 700, marginBottom: 4 }}>
+                📱 สแกน QR เพื่อชำระผ่าน PromptPay
+              </div>
+              <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 12 }}>
+                รองรับ: ธนาคารทุกแห่ง · TrueMoney Wallet · แอปเป๋าตัง
+              </div>
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="PromptPay QR"
+                  style={{
+                    width: 200,
+                    height: 200,
+                    display: 'block',
+                    margin: '0 auto 12px',
+                    border: '3px solid #BBF7D0',
+                    borderRadius: 12,
+                    padding: 4,
+                    background: '#fff',
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 200,
+                    height: 200,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px',
+                    border: '3px solid #BBF7D0',
+                    borderRadius: 12,
+                  }}
+                >
+                  <div className="spinner" />
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 2 }}>ยอดที่ต้องชำระ</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#059669' }}>
+                ฿{total.toLocaleString()}
+              </div>
+            </div>
+
+            {/* Demo notice */}
             <div
               style={{
                 padding: '8px 12px',
@@ -140,111 +220,65 @@ export default function CartPage() {
                 borderRadius: 8,
                 fontSize: 12,
                 color: '#92400E',
+                textAlign: 'center',
               }}
             >
-              💡 <strong>Demo mode:</strong> ใช้หมายเลขบัตรใดก็ได้ (ปฏิเสธ:{' '}
-              <code>4000 0000 0000 0002</code>)
+              💡 <strong>Demo mode</strong> — กด "ยืนยันชำระแล้ว" เพื่อจำลองการชำระเงิน
             </div>
 
-            <div className="form-group">
-              <label className="form-label">หมายเลขบัตร</label>
+            {/* Checkbox */}
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                cursor: 'pointer',
+                fontSize: 14,
+                padding: '10px 14px',
+                background: confirmed ? '#F0FDF4' : 'var(--bg)',
+                border: `1.5px solid ${confirmed ? '#BBF7D0' : 'var(--border)'}`,
+                borderRadius: 10,
+                transition: 'all 0.15s',
+              }}
+            >
               <input
-                className="form-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="0000 0000 0000 0000"
-                value={card.number}
-                onChange={(e) => setCard({ ...card, number: formatCardNumber(e.target.value) })}
-                maxLength={19}
-                required
+                type="checkbox"
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+                style={{ width: 18, height: 18, accentColor: '#10B981' }}
               />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">ชื่อบนบัตร</label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="FIRSTNAME LASTNAME"
-                value={card.name}
-                onChange={(e) => setCard({ ...card, name: e.target.value.toUpperCase() })}
-                required
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div className="form-group">
-                <label className="form-label">เดือน MM</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="MM"
-                  maxLength={2}
-                  value={card.expiryMonth}
-                  onChange={(e) =>
-                    setCard({ ...card, expiryMonth: e.target.value.replace(/\D/g, '').slice(0, 2) })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">ปี YY</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="YY"
-                  maxLength={2}
-                  value={card.expiryYear}
-                  onChange={(e) =>
-                    setCard({ ...card, expiryYear: e.target.value.replace(/\D/g, '').slice(0, 2) })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">CVV</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="123"
-                  maxLength={4}
-                  value={card.cvv}
-                  onChange={(e) =>
-                    setCard({ ...card, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) })
-                  }
-                  required
-                />
-              </div>
-            </div>
+              โอนเงินเรียบร้อยแล้ว
+            </label>
 
             <button
-              type="submit"
               className="btn-primary"
-              disabled={loading}
-              style={{ width: '100%', marginTop: 4 }}
+              disabled={!confirmed || loading}
+              style={{
+                width: '100%',
+                background: confirmed ? 'linear-gradient(135deg,#10B981,#34D399)' : undefined,
+              }}
+              onClick={handleCheckout}
             >
               {loading ? (
                 <>
                   <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />{' '}
-                  กำลังดำเนินการ...
+                  กำลังตรวจสอบ...
                 </>
               ) : (
-                <>💳 ชำระ ฿{total.toLocaleString()}</>
+                <>✅ ยืนยันชำระแล้ว · ฿{total.toLocaleString()}</>
               )}
             </button>
+
             <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>
-              🔒 ข้อมูลบัตรของคุณถูกเข้ารหัสอย่างปลอดภัย
+              🔒 ธุรกรรมนี้ปลอดภัยและเข้ารหัส
             </div>
-          </form>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ── Cart ────────────────────────────────────────────────────────────────
+  // ── Cart ──────────────────────────────────────────────────────────────────
   return (
     <div className="anim-up">
       <div
@@ -363,8 +397,8 @@ export default function CartPage() {
             ))}
           </div>
 
-          {/* Summary + checkout */}
-          <div className="card" style={{ padding: '20px 22px', position: 'sticky', top: 84 }}>
+          {/* Summary */}
+          <div className="card" style={{ padding: '20px 22px', position: 'sticky', top: 72 }}>
             <div
               style={{
                 fontSize: 15,
@@ -423,7 +457,7 @@ export default function CartPage() {
               style={{ width: '100%' }}
               onClick={() => setStep('payment')}
             >
-              💳 ดำเนินการชำระเงิน
+              📱 ชำระผ่าน QR PromptPay
             </button>
           </div>
         </div>

@@ -15,10 +15,31 @@ export const adminController = {
     }
   },
 
+  async getAllCourses(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getAllCourses());
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async createCourse(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { title, description, category } = req.body;
-      res.status(201).json(await adminService.createCourse({ title, description, category }));
+      const { title, description, category, thumbnailUrl, price, recommendedFor, inBundle } =
+        req.body;
+      res
+        .status(201)
+        .json(
+          await adminService.createCourse({
+            title,
+            description,
+            category,
+            thumbnailUrl,
+            price,
+            recommendedFor,
+            inBundle,
+          }),
+        );
     } catch (err) {
       next(err);
     }
@@ -41,6 +62,24 @@ export const adminController = {
     }
   },
 
+  async toggleFeatured(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.toggleFeatured(req.params.id));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteRating(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { ratingService } = await import('../rating/rating.service');
+      await ratingService.deleteRating(req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async reorderCourses(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       await adminService.reorderCourses(req.body.items);
@@ -52,10 +91,18 @@ export const adminController = {
 
   async addVideo(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { title, url, duration, order } = req.body;
+      const { title, url, duration, order, section } = req.body;
       res
         .status(201)
-        .json(await adminService.addVideo(req.params.courseId, { title, url, duration, order }));
+        .json(
+          await adminService.addVideo(req.params.courseId, {
+            title,
+            url,
+            duration,
+            order,
+            section,
+          }),
+        );
     } catch (err) {
       next(err);
     }
@@ -215,6 +262,67 @@ export const adminController = {
   async listOrders(_req: AuthRequest, res: Response, next: NextFunction) {
     try {
       res.json(await paymentService.listAllOrders());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getActivityFeed(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getActivityFeed());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Announcements
+  async listAnnouncements(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.listAnnouncements());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { title, body, pinned } = req.body;
+      res.status(201).json(await adminService.createAnnouncement({ title, body, pinned }));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.updateAnnouncement(req.params.id, req.body));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.deleteAnnouncement(req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Site Settings
+  async getSiteSettings(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getSiteSettings());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateSiteSettings(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.updateSiteSettings(req.body);
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }

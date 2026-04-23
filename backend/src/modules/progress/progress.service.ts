@@ -1,7 +1,7 @@
 import { progressRepository } from './progress.repository';
 import { courseRepository } from '../course/course.repository';
 
-const COMPLETION_THRESHOLD = 80;
+const COMPLETION_THRESHOLD = 100;
 
 export const progressService = {
   async saveProgress(

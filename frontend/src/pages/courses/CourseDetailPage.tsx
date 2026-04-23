@@ -44,7 +44,7 @@ export default function CourseDetailPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, resumeVideoId]);
 
   const handleProgress = (_percent: number, videoCompleted: boolean) => {
     if (!selectedVideo || !course) return;
@@ -61,6 +61,35 @@ export default function CourseDetailPage() {
       return updated;
     });
   };
+
+  const getVP = (vid: string) => progress.find((p) => p.videoId === vid);
+  const completedCount = progress.filter((p) => p.completed).length;
+  const totalVideos = course?.videos.length ?? 0;
+
+  // Sections derived from videos — must be before any conditional return
+  const sections = useMemo(() => {
+    if (!course) return [];
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const v of course.videos) {
+      if (v.section && !seen.has(v.section)) {
+        seen.add(v.section);
+        result.push(v.section);
+      }
+    }
+    return result;
+  }, [course]);
+
+  const filteredVideos = useMemo(
+    () =>
+      course
+        ? activeSection
+          ? course.videos.filter((v) => v.section === activeSection)
+          : course.videos
+        : [],
+    [course, activeSection],
+  );
+  const overallPercent = totalVideos > 0 ? Math.round((completedCount / totalVideos) * 100) : 0;
 
   if (loading) {
     return (
@@ -84,30 +113,6 @@ export default function CourseDetailPage() {
       </div>
     );
   }
-
-  const getVP = (vid: string) => progress.find((p) => p.videoId === vid);
-  const completedCount = progress.filter((p) => p.completed).length;
-  const totalVideos = course.videos.length;
-
-  // Sections derived from videos
-  const sections = useMemo(() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const v of course.videos) {
-      if (v.section && !seen.has(v.section)) {
-        seen.add(v.section);
-        result.push(v.section);
-      }
-    }
-    return result;
-  }, [course.videos]);
-
-  const filteredVideos = useMemo(
-    () =>
-      activeSection ? course.videos.filter((v) => v.section === activeSection) : course.videos,
-    [course.videos, activeSection],
-  );
-  const overallPercent = totalVideos > 0 ? Math.round((completedCount / totalVideos) * 100) : 0;
 
   return (
     <>

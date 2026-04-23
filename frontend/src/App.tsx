@@ -14,6 +14,7 @@ import AdminPage from './pages/admin/AdminPage';
 import HelpPage from './pages/HelpPage';
 import VerifyPage from './pages/VerifyPage';
 import CartPage from './pages/CartPage';
+import ProfilePage from './pages/ProfilePage';
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -85,6 +86,14 @@ export default function App() {
                 element={
                   <AuthenticatedLayout>
                     <AdminPage />
+                  </AuthenticatedLayout>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <AuthenticatedLayout>
+                    <ProfilePage />
                   </AuthenticatedLayout>
                 }
               />

@@ -11,6 +11,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem(REMEMBER_KEY));
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,7 @@ export default function LoginPage() {
           <div className="auth-logo">
             <div className="auth-logo-icon">🏥</div>
             <div>
-              <div className="auth-logo-name">รพ.สต. Learning Hub</div>
+              <div className="auth-logo-name">BGS E-Learning</div>
               <div className="auth-logo-sub">{t.nav_platform_sub}</div>
             </div>
           </div>
@@ -260,17 +261,41 @@ export default function LoginPage() {
               <label className="form-label" htmlFor="password">
                 {t.login_password}
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 16,
+                    color: 'var(--text-muted)',
+                    padding: 2,
+                    lineHeight: 1,
+                  }}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
 
             <label

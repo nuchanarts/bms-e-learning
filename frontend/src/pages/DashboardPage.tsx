@@ -40,16 +40,27 @@ const THUMBS = [
 
 const ICONS = ['💊', '🩺', '🏥', '🧬', '💉', '🩻', '🏃', '🍎'];
 
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
-    api
-      .get<DashboardData>('/dashboard')
-      .then((r) => setData(r.data))
+    Promise.all([api.get<DashboardData>('/dashboard'), api.get<Announcement[]>('/announcements')])
+      .then(([d, a]) => {
+        setData(d.data);
+        setAnnouncements(a.data);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -70,30 +81,140 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      label: 'คอร์สทั้งหมด',
+      label: 'คอร์สที่เรียน',
+      sub: 'หลักสูตร',
       value: data?.totalCourses ?? 0,
-      icon: '📚',
-      color: '#7B68EE',
-      bar: 'linear-gradient(90deg,#7B68EE,#9B8FFF)',
+      iconColor: '#3B82F6',
+      icon: (
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#3B82F6"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ opacity: 0.85 }}
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+      ),
+      bar: 'linear-gradient(90deg,#2563EB,#60A5FA)',
     },
     {
-      label: 'เรียนจบแล้ว',
+      label: 'เรียนสำเร็จ',
+      sub: 'คอร์ส',
       value: data?.completedCourses ?? 0,
-      icon: '✅',
-      color: '#10B981',
+      iconColor: '#10B981',
+      icon: (
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#10B981"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ opacity: 0.85 }}
+        >
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
       bar: 'linear-gradient(90deg,#10B981,#34D399)',
     },
     {
       label: 'กำลังเรียน',
+      sub: 'คอร์ส',
       value: data?.inProgressCourses ?? 0,
-      icon: '▶️',
-      color: '#F59E0B',
+      iconColor: '#F59E0B',
+      icon: (
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#F59E0B"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ opacity: 0.85 }}
+        >
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+          <polyline points="16 7 22 7 22 13" />
+        </svg>
+      ),
       bar: 'linear-gradient(90deg,#F59E0B,#FCD34D)',
+    },
+    {
+      label: 'ประกาศนียบัตร',
+      sub: 'ใบ',
+      value: data?.completedCourses ?? 0,
+      iconColor: '#8B5CF6',
+      icon: (
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#8B5CF6"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ opacity: 0.85 }}
+        >
+          <circle cx="12" cy="8" r="6" />
+          <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+        </svg>
+      ),
+      bar: 'linear-gradient(90deg,#8B5CF6,#C4B5FD)',
     },
   ];
 
   return (
     <div className="anim-up">
+      {/* ─── Announcements ─── */}
+      {announcements.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+          {announcements.map((a) => (
+            <div
+              key={a.id}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '12px 16px',
+                borderRadius: 12,
+                background: a.pinned ? 'rgba(245,158,11,0.08)' : 'var(--card)',
+                border: `1px solid ${a.pinned ? 'rgba(245,158,11,0.35)' : 'var(--border)'}`,
+              }}
+            >
+              <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>
+                {a.pinned ? '📌' : '📢'}
+              </span>
+              <div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    marginBottom: 3,
+                  }}
+                >
+                  {a.title}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                  {a.body}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ─── Hero Banner ─── */}
       <div className="hero-banner">
         <div className="hero-content">
@@ -107,13 +228,30 @@ export default function DashboardPage() {
             }}
           >
             <div>
-              <p className="hero-greeting">ยินดีต้อนรับกลับ 👋</p>
+              <p className="hero-greeting">ยินดีต้อนรับกลับมา 👋</p>
               <h2 className="hero-name">{user?.name}</h2>
               <p className="hero-sub">
-                {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ รพ.สต.'} —
-                มาเรียนรู้ต่อกันเลย!
+                {user?.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่สาธารณสุข'} · รพ.สต.บ้านสวน ·
+                เชียงใหม่
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(255,255,255,0.15)',
+                    borderRadius: 20,
+                    padding: '5px 14px',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>🔥</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)', fontWeight: 600 }}>
+                    เรียนต่อเนื่อง{' '}
+                    {Math.max(1, Math.ceil((data?.totalLearningSeconds ?? 0) / 86400))} วัน
+                  </span>
+                </div>
                 {(data?.totalLearningSeconds ?? 0) > 0 && (
                   <div
                     style={{
@@ -122,13 +260,15 @@ export default function DashboardPage() {
                       gap: 6,
                       background: 'rgba(255,255,255,0.15)',
                       borderRadius: 20,
-                      padding: '4px 12px',
+                      padding: '5px 14px',
+                      border: '1px solid rgba(255,255,255,0.2)',
                     }}
                   >
-                    <span style={{ fontSize: 14 }}>⏱️</span>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
-                      {totalHours > 0 ? `${totalHours} ชม. ` : ''}
-                      {totalMins} นาที
+                    <span style={{ fontSize: 14 }}>🕐</span>
+                    <span
+                      style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)', fontWeight: 600 }}
+                    >
+                      {totalHours > 0 ? `${totalHours} ชั่วโมง` : `${totalMins} นาที`} สะสม
                     </span>
                   </div>
                 )}
@@ -140,19 +280,19 @@ export default function DashboardPage() {
                       gap: 6,
                       background: 'rgba(255,255,255,0.15)',
                       borderRadius: 20,
-                      padding: '4px 12px',
+                      padding: '5px 14px',
+                      border: '1px solid rgba(255,255,255,0.2)',
                     }}
                   >
                     <span style={{ fontSize: 14 }}>{tier.icon}</span>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
+                    <span
+                      style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)', fontWeight: 700 }}
+                    >
                       {tier.label}
                     </span>
                   </div>
                 )}
               </div>
-              <Link to="/courses" className="hero-btn">
-                🎓 ดูคอร์สทั้งหมด
-              </Link>
             </div>
             {/* Progress ring display */}
             {data && data.totalCourses > 0 && (
@@ -212,21 +352,35 @@ export default function DashboardPage() {
       <div className="stats-grid" style={{ marginBottom: 32 }}>
         {stats.map((s) => (
           <div className="stat-card" key={s.label}>
-            <div className="stat-card-bar" style={{ background: s.bar }} />
-            <div className="stat-card-icon">{s.icon}</div>
-            <div className="stat-label">{s.label}</div>
             <div
-              className="stat-value"
-              style={{
-                background: s.bar,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
+              style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}
             >
-              {s.value}
+              <div>
+                <div className="stat-label">{s.label}</div>
+                <div
+                  className="stat-value"
+                  style={{ color: s.iconColor, WebkitTextFillColor: s.iconColor }}
+                >
+                  {s.value}
+                </div>
+                <div className="stat-sub">{s.sub}</div>
+              </div>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: `${s.iconColor}15`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {s.icon}
+              </div>
             </div>
-            <div className="stat-sub">คอร์ส</div>
+            <div className="stat-card-bar" style={{ background: s.bar, marginTop: 14 }} />
           </div>
         ))}
       </div>
