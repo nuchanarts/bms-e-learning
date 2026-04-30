@@ -107,9 +107,17 @@ export const adminService = {
       price?: number | null;
       recommendedFor?: string | null;
       inBundle?: boolean;
+      requireTrainingRecord?: boolean;
     },
   ) {
     return prisma.course.update({ where: { id }, data });
+  },
+
+  async toggleRequireTrainingRecord(courseId: string, required: boolean) {
+    return prisma.course.update({
+      where: { id: courseId },
+      data: { requireTrainingRecord: required },
+    });
   },
 
   async reorderCourses(items: { id: string; order: number }[]) {

@@ -64,6 +64,7 @@ interface CourseItem {
   isActive: boolean;
   order: number;
   price?: number | null;
+  requireTrainingRecord: boolean;
   videos: Video[];
   documents: Document[];
 }
@@ -667,6 +668,18 @@ export default function AdminPage() {
     if (!confirm('ต้องการลบเอกสารนี้?')) return;
     await api.delete(`/admin/documents/${docId}`);
     await loadData();
+  };
+
+  const handleToggleRequireTraining = async (courseId: string, current: boolean) => {
+    const next = !current;
+    try {
+      await api.put(`/admin/courses/${courseId}/require-training-record`, { required: next });
+      setCourses((prev) =>
+        prev.map((c) => (c.id === courseId ? { ...c, requireTrainingRecord: next } : c)),
+      );
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleToggleQuiz = async (courseId: string) => {
@@ -2977,6 +2990,58 @@ export default function AdminPage() {
                                 {savingDoc ? 'กำลังบันทึก...' : 'เพิ่มเอกสาร'}
                               </button>
                             </form>
+                          </div>
+
+                          {/* ─── Training Record Toggle ─── */}
+                          <div
+                            style={{
+                              borderTop: '1px solid var(--border)',
+                              paddingTop: 10,
+                              marginTop: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 8,
+                            }}
+                          >
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: 'var(--text-primary)',
+                                }}
+                              >
+                                📋 บันทึกผลการปฏิบัติ
+                              </div>
+                              <div
+                                style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}
+                              >
+                                {c.requireTrainingRecord
+                                  ? 'บังคับส่งผลก่อนรับใบประกาศ'
+                                  : 'ไม่บังคับ — รับใบประกาศได้ทันที'}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleToggleRequireTraining(c.id, c.requireTrainingRecord)
+                              }
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: 20,
+                                border: 'none',
+                                background: c.requireTrainingRecord ? '#16A34A' : '#D1D5DB',
+                                color: '#fff',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                                whiteSpace: 'nowrap',
+                                transition: 'background 0.2s',
+                              }}
+                            >
+                              {c.requireTrainingRecord ? '✓ เปิดใช้งาน' : 'ปิดอยู่'}
+                            </button>
                           </div>
 
                           {/* ─── Quiz ─── */}

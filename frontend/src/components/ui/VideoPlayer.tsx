@@ -31,7 +31,13 @@ function getYouTubeId(url: string): string | null {
 
 function buildYouTubeEmbed(videoId: string, startSeconds?: number): string {
   const base = `https://www.youtube.com/embed/${videoId}`;
-  const params = new URLSearchParams({ rel: '0', modestbranding: '1', enablejsapi: '0' });
+  const params = new URLSearchParams({
+    rel: '0',
+    modestbranding: '1',
+    enablejsapi: '1',
+    vq: 'hd1080',
+    hd: '1',
+  });
   if (startSeconds && startSeconds > 0) params.set('start', String(Math.floor(startSeconds)));
   return `${base}?${params.toString()}`;
 }
@@ -146,6 +152,7 @@ function YouTubePlayer({
   const watchedRef = useRef(resumeSeconds ?? 0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const savedRef = useRef(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [playing, setPlaying] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [elapsed, setElapsed] = useState(resumeSeconds ?? 0);
@@ -213,6 +220,25 @@ function YouTubePlayer({
       if (watchedRef.current > 0) saveProgress(watchedRef.current);
     };
   }, [saveProgress]);
+
+  // Listen for YouTube API ready event and set quality to hd1080
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data?.event === 'onReady' || data?.info === 1) {
+          iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ event: 'command', func: 'setPlaybackQuality', args: ['hd1080'] }),
+            '*',
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   const embedUrl = buildYouTubeEmbed(ytId, resumeSeconds);
   const percent = duration ? Math.min(100, Math.round((elapsed / duration) * 100)) : 0;

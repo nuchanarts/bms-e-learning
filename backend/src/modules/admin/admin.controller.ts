@@ -68,6 +68,15 @@ export const adminController = {
     }
   },
 
+  async toggleRequireTrainingRecord(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { required } = req.body;
+      res.json(await adminService.toggleRequireTrainingRecord(req.params.id, Boolean(required)));
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async deleteRating(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { ratingService } = await import('../rating/rating.service');

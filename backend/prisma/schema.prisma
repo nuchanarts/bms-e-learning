@@ -51,7 +51,8 @@ model Course {
   isActive             Boolean         @default(true)
   order                Int             @default(0)
   price                Float?          // null = free
-  quizRequired         Boolean         @default(false)
+  quizRequired              Boolean         @default(false)
+  requireTrainingRecord     Boolean         @default(false)
   prerequisiteCourseId String?         @db.VarChar(36)
   recommendedFor       String?         @db.VarChar(500)  // JSON array of position names
   inBundle             Boolean         @default(false)

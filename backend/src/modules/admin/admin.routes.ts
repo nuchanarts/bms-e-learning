@@ -12,6 +12,7 @@ router.get('/courses', adminController.getAllCourses);
 router.post('/courses', adminController.createCourse);
 router.put('/courses/reorder', adminController.reorderCourses);
 router.put('/courses/:id/featured', adminController.toggleFeatured);
+router.put('/courses/:id/require-training-record', adminController.toggleRequireTrainingRecord);
 router.put('/courses/:id', adminController.updateCourse);
 router.delete('/courses/:id', adminController.deleteCourse);
 

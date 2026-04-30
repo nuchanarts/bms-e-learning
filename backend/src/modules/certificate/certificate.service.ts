@@ -356,14 +356,16 @@ export const certificateService = {
       throw Object.assign(new Error('Quiz not passed'), { status: 403 });
     }
 
-    const hasTrainingRecord = await trainingRecordRepository.existsForUserAndCourse(
-      userId,
-      courseId,
-    );
-    if (!hasTrainingRecord) {
-      throw Object.assign(new Error('กรุณาบันทึกผลการปฏิบัติหลังอบรมก่อนรับใบประกาศนียบัตร'), {
-        status: 403,
-      });
+    if ((course as any).requireTrainingRecord) {
+      const hasTrainingRecord = await trainingRecordRepository.existsForUserAndCourse(
+        userId,
+        courseId,
+      );
+      if (!hasTrainingRecord) {
+        throw Object.assign(new Error('กรุณาบันทึกผลการปฏิบัติหลังอบรมก่อนรับใบประกาศนียบัตร'), {
+          status: 403,
+        });
+      }
     }
 
     if (!fs.existsSync(CERTS_DIR)) fs.mkdirSync(CERTS_DIR, { recursive: true });
