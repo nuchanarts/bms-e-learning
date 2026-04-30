@@ -492,6 +492,13 @@ export default function AdminPage() {
     order: '',
   });
   const [savingQuiz, setSavingQuiz] = useState(false);
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [editQuizForm, setEditQuizForm] = useState({
+    text: '',
+    options: ['', '', '', ''],
+    correctIndex: 0,
+  });
+  const [savingEditQuiz, setSavingEditQuiz] = useState(false);
 
   // Reorder
   const [reordering, setReordering] = useState(false);
@@ -700,6 +707,48 @@ export default function AdminPage() {
     if (quizCourseId) {
       const { data } = await api.get<QuizQuestion[]>(`/admin/courses/${quizCourseId}/quiz`);
       setQuizQuestions(data);
+    }
+  };
+
+  const handleStartEditQuiz = (q: QuizQuestion) => {
+    setEditingQuizId(q.id);
+    setEditQuizForm({
+      text: q.text,
+      options: [...q.options, '', '', '', ''].slice(0, 4),
+      correctIndex: q.correctIndex,
+    });
+  };
+
+  const handleSaveEditQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuizId) return;
+    setSavingEditQuiz(true);
+    try {
+      await api.put(`/admin/quiz/${editingQuizId}`, {
+        text: editQuizForm.text,
+        options: editQuizForm.options.filter((o) => o.trim()),
+        correctIndex: editQuizForm.correctIndex,
+      });
+      if (quizCourseId) {
+        const { data } = await api.get<QuizQuestion[]>(`/admin/courses/${quizCourseId}/quiz`);
+        setQuizQuestions(data);
+      }
+      setEditingQuizId(null);
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingEditQuiz(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`ต้องการลบผู้ใช้ "${userName}" ออกจากระบบ?\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`))
+      return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch {
+      /* ignore */
     }
   };
 
@@ -1402,6 +1451,23 @@ export default function AdminPage() {
                               }}
                             >
                               {u.isActive ? '🔒 ปิดใช้งาน' : '✅ เปิดใช้งาน'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u.id, u.name)}
+                              title="ลบผู้ใช้ออกจากระบบ"
+                              style={{
+                                padding: '5px 9px',
+                                borderRadius: 7,
+                                border: '1px solid rgba(239,68,68,0.3)',
+                                background: 'rgba(239,68,68,0.07)',
+                                color: '#DC2626',
+                                fontSize: 13,
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              🗑
                             </button>
                           </div>
                         </td>
@@ -2957,116 +3023,284 @@ export default function AdminPage() {
                             </div>
                             {quizCourseId === c.id && (
                               <div>
-                                {quizQuestions.map((q, qi) => (
+                                {/* Question list */}
+                                {quizQuestions.length === 0 && (
                                   <div
-                                    key={q.id}
                                     style={{
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      gap: 6,
-                                      padding: '6px 8px',
-                                      borderRadius: 7,
-                                      background: 'var(--surface)',
-                                      border: '1px solid var(--border)',
-                                      marginBottom: 4,
+                                      fontSize: 12,
+                                      color: 'var(--text-muted)',
+                                      padding: '8px 0',
+                                      textAlign: 'center',
                                     }}
                                   >
-                                    <span
-                                      style={{
-                                        fontSize: 11,
-                                        flex: 1,
-                                        color: 'var(--text-primary)',
-                                      }}
-                                    >
-                                      {qi + 1}. {q.text}
-                                    </span>
-                                    <button
-                                      onClick={() => handleDeleteQuizQuestion(q.id)}
-                                      style={{
-                                        padding: '2px 7px',
-                                        borderRadius: 6,
-                                        border: '1px solid rgba(239,68,68,0.2)',
-                                        background: 'rgba(239,68,68,0.06)',
-                                        color: '#DC2626',
-                                        fontSize: 11,
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        fontFamily: 'inherit',
-                                        flexShrink: 0,
-                                      }}
-                                    >
-                                      ลบ
-                                    </button>
+                                    ยังไม่มีคำถาม — เพิ่มคำถามด้านล่าง
+                                  </div>
+                                )}
+                                {quizQuestions.map((q, qi) => (
+                                  <div key={q.id} style={{ marginBottom: 6 }}>
+                                    {editingQuizId === q.id ? (
+                                      /* ── Inline edit form ── */
+                                      <form
+                                        onSubmit={handleSaveEditQuiz}
+                                        style={{
+                                          background: '#EFF6FF',
+                                          border: '1px solid #BFDBFE',
+                                          borderRadius: 8,
+                                          padding: '10px 10px',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: 5,
+                                        }}
+                                      >
+                                        <input
+                                          className="form-input"
+                                          value={editQuizForm.text}
+                                          onChange={(e) =>
+                                            setEditQuizForm((f) => ({ ...f, text: e.target.value }))
+                                          }
+                                          required
+                                          style={{ fontSize: 12, padding: '5px 8px' }}
+                                          placeholder="คำถาม"
+                                        />
+                                        {editQuizForm.options.map((opt, oi) => (
+                                          <div
+                                            key={oi}
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: 5,
+                                            }}
+                                          >
+                                            <input
+                                              type="radio"
+                                              name={`edit-correct-${q.id}`}
+                                              checked={editQuizForm.correctIndex === oi}
+                                              onChange={() =>
+                                                setEditQuizForm((f) => ({ ...f, correctIndex: oi }))
+                                              }
+                                              style={{ accentColor: '#2563EB', flexShrink: 0 }}
+                                              title="คำตอบถูก"
+                                            />
+                                            <input
+                                              className="form-input"
+                                              value={opt}
+                                              onChange={(e) =>
+                                                setEditQuizForm((f) => {
+                                                  const opts = [...f.options];
+                                                  opts[oi] = e.target.value;
+                                                  return { ...f, options: opts };
+                                                })
+                                              }
+                                              placeholder={`ตัวเลือก ${oi + 1}`}
+                                              style={{ fontSize: 12, padding: '4px 8px', flex: 1 }}
+                                            />
+                                          </div>
+                                        ))}
+                                        <div style={{ display: 'flex', gap: 5 }}>
+                                          <button
+                                            type="submit"
+                                            disabled={savingEditQuiz}
+                                            style={{
+                                              flex: 1,
+                                              padding: '5px',
+                                              background: '#2563EB',
+                                              color: '#fff',
+                                              border: 'none',
+                                              borderRadius: 6,
+                                              fontSize: 12,
+                                              fontWeight: 700,
+                                              cursor: 'pointer',
+                                              fontFamily: 'inherit',
+                                            }}
+                                          >
+                                            {savingEditQuiz ? 'บันทึก...' : '✓ บันทึก'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingQuizId(null)}
+                                            style={{
+                                              padding: '5px 10px',
+                                              background: '#F3F4F6',
+                                              border: '1px solid var(--border)',
+                                              borderRadius: 6,
+                                              fontSize: 12,
+                                              cursor: 'pointer',
+                                              fontFamily: 'inherit',
+                                            }}
+                                          >
+                                            ยกเลิก
+                                          </button>
+                                        </div>
+                                      </form>
+                                    ) : (
+                                      /* ── Question display ── */
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'flex-start',
+                                          gap: 6,
+                                          padding: '7px 9px',
+                                          borderRadius: 7,
+                                          background: 'var(--bg)',
+                                          border: '1px solid var(--border)',
+                                        }}
+                                      >
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div
+                                            style={{
+                                              fontSize: 12,
+                                              fontWeight: 600,
+                                              color: 'var(--text-primary)',
+                                              marginBottom: 3,
+                                            }}
+                                          >
+                                            {qi + 1}. {q.text}
+                                          </div>
+                                          <div
+                                            style={{
+                                              display: 'flex',
+                                              flexWrap: 'wrap',
+                                              gap: '3px 10px',
+                                            }}
+                                          >
+                                            {q.options.map((opt, oi) => (
+                                              <span
+                                                key={oi}
+                                                style={{
+                                                  fontSize: 10,
+                                                  color:
+                                                    oi === q.correctIndex
+                                                      ? '#16A34A'
+                                                      : 'var(--text-muted)',
+                                                  fontWeight: oi === q.correctIndex ? 700 : 400,
+                                                }}
+                                              >
+                                                {oi === q.correctIndex ? '✓' : '○'} {opt}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                          <button
+                                            onClick={() => handleStartEditQuiz(q)}
+                                            style={{
+                                              padding: '3px 8px',
+                                              borderRadius: 6,
+                                              border: '1px solid rgba(37,99,235,0.25)',
+                                              background: 'rgba(37,99,235,0.06)',
+                                              color: '#2563EB',
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              cursor: 'pointer',
+                                              fontFamily: 'inherit',
+                                            }}
+                                          >
+                                            แก้ไข
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteQuizQuestion(q.id)}
+                                            style={{
+                                              padding: '3px 8px',
+                                              borderRadius: 6,
+                                              border: '1px solid rgba(239,68,68,0.2)',
+                                              background: 'rgba(239,68,68,0.06)',
+                                              color: '#DC2626',
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              cursor: 'pointer',
+                                              fontFamily: 'inherit',
+                                            }}
+                                          >
+                                            ลบ
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
-                                <form
-                                  onSubmit={handleAddQuizQuestion}
+
+                                {/* ── Add new question form ── */}
+                                <div
                                   style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 5,
+                                    borderTop: '1px dashed var(--border)',
+                                    paddingTop: 10,
                                     marginTop: 8,
                                   }}
                                 >
-                                  <input
-                                    className="form-input"
-                                    placeholder="คำถาม"
-                                    value={quizForm.text}
-                                    onChange={(e) =>
-                                      setQuizForm((f) => ({ ...f, text: e.target.value }))
-                                    }
-                                    required
-                                    style={{ fontSize: 12, padding: '6px 10px' }}
-                                  />
-                                  {quizForm.options.map((opt, oi) => (
-                                    <div
-                                      key={oi}
-                                      style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                                    >
-                                      <input
-                                        type="radio"
-                                        name="correct"
-                                        checked={quizForm.correctIndex === oi}
-                                        onChange={() =>
-                                          setQuizForm((f) => ({ ...f, correctIndex: oi }))
-                                        }
-                                        style={{ accentColor: 'var(--primary)', flexShrink: 0 }}
-                                        title="ตอบถูก"
-                                      />
-                                      <input
-                                        className="form-input"
-                                        placeholder={`ตัวเลือก ${oi + 1}`}
-                                        value={opt}
-                                        onChange={(e) =>
-                                          setQuizForm((f) => {
-                                            const opts = [...f.options];
-                                            opts[oi] = e.target.value;
-                                            return { ...f, options: opts };
-                                          })
-                                        }
-                                        required
-                                        style={{ fontSize: 12, padding: '5px 8px', flex: 1 }}
-                                      />
-                                    </div>
-                                  ))}
-                                  <p
+                                  <div
                                     style={{
-                                      fontSize: 10,
+                                      fontSize: 11,
+                                      fontWeight: 700,
                                       color: 'var(--text-muted)',
-                                      margin: '2px 0',
+                                      marginBottom: 6,
                                     }}
                                   >
-                                    🔘 คลิก radio เพื่อเลือกคำตอบถูก
-                                  </p>
-                                  <button
-                                    type="submit"
-                                    className="btn-secondary"
-                                    disabled={savingQuiz}
-                                    style={{ fontSize: 12, padding: '6px 12px' }}
+                                    + เพิ่มคำถามใหม่
+                                  </div>
+                                  <form
+                                    onSubmit={handleAddQuizQuestion}
+                                    style={{ display: 'flex', flexDirection: 'column', gap: 5 }}
                                   >
-                                    {savingQuiz ? 'กำลังบันทึก...' : 'เพิ่มคำถาม'}
-                                  </button>
-                                </form>
+                                    <input
+                                      className="form-input"
+                                      placeholder="คำถาม"
+                                      value={quizForm.text}
+                                      onChange={(e) =>
+                                        setQuizForm((f) => ({ ...f, text: e.target.value }))
+                                      }
+                                      required
+                                      style={{ fontSize: 12, padding: '6px 10px' }}
+                                    />
+                                    {quizForm.options.map((opt, oi) => (
+                                      <div
+                                        key={oi}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                                      >
+                                        <input
+                                          type="radio"
+                                          name="correct"
+                                          checked={quizForm.correctIndex === oi}
+                                          onChange={() =>
+                                            setQuizForm((f) => ({ ...f, correctIndex: oi }))
+                                          }
+                                          style={{ accentColor: 'var(--primary)', flexShrink: 0 }}
+                                          title="ตอบถูก"
+                                        />
+                                        <input
+                                          className="form-input"
+                                          placeholder={`ตัวเลือก ${oi + 1}`}
+                                          value={opt}
+                                          onChange={(e) =>
+                                            setQuizForm((f) => {
+                                              const opts = [...f.options];
+                                              opts[oi] = e.target.value;
+                                              return { ...f, options: opts };
+                                            })
+                                          }
+                                          required
+                                          style={{ fontSize: 12, padding: '5px 8px', flex: 1 }}
+                                        />
+                                      </div>
+                                    ))}
+                                    <p
+                                      style={{
+                                        fontSize: 10,
+                                        color: 'var(--text-muted)',
+                                        margin: '2px 0',
+                                      }}
+                                    >
+                                      🔘 คลิก radio เพื่อเลือกคำตอบที่ถูกต้อง
+                                    </p>
+                                    <button
+                                      type="submit"
+                                      className="btn-secondary"
+                                      disabled={savingQuiz}
+                                      style={{ fontSize: 12, padding: '6px 12px' }}
+                                    >
+                                      {savingQuiz ? 'กำลังบันทึก...' : '+ เพิ่มคำถาม'}
+                                    </button>
+                                  </form>
+                                </div>
                               </div>
                             )}
                           </div>

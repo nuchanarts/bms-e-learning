@@ -17,6 +17,7 @@ import HelpPage from './pages/HelpPage';
 import VerifyPage from './pages/VerifyPage';
 import CartPage from './pages/CartPage';
 import ProfilePage from './pages/ProfilePage';
+import TrainingRecordPage from './pages/TrainingRecordPage';
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -98,6 +99,14 @@ export default function App() {
                   element={
                     <AuthenticatedLayout>
                       <ProfilePage />
+                    </AuthenticatedLayout>
+                  }
+                />
+                <Route
+                  path="/training-records"
+                  element={
+                    <AuthenticatedLayout>
+                      <TrainingRecordPage />
                     </AuthenticatedLayout>
                   }
                 />

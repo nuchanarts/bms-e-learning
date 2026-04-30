@@ -9,6 +9,7 @@ interface User {
   cid?: string | null;
   hospital?: string | null;
   position?: string | null;
+  avatarUrl?: string | null;
 }
 interface AuthContextType {
   user: User | null;
@@ -23,7 +24,12 @@ interface AuthContextType {
     hospcode?: string,
   ) => Promise<void>;
   logout: () => void;
-  updateProfile: (data: { name?: string; hospital?: string; position?: string }) => Promise<void>;
+  updateProfile: (data: {
+    name?: string;
+    hospital?: string;
+    position?: string;
+    avatarUrl?: string | null;
+  }) => Promise<void>;
   isLoading: boolean;
 }
 

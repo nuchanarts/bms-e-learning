@@ -16,6 +16,7 @@ import announcementsRoutes from './modules/admin/announcements.routes';
 import statsRoutes from './modules/stats/stats.routes';
 import ratingRoutes from './modules/rating/rating.routes';
 import bundleRoutes from './modules/bundle/bundle.routes';
+import trainingRecordRoutes from './modules/training-record/training-record.routes';
 import { errorHandler } from './middleware/error.middleware';
 import prisma from './lib/prisma';
 
@@ -40,6 +41,7 @@ app.use('/announcements', announcementsRoutes);
 app.use('/stats', statsRoutes);
 app.use('/ratings', ratingRoutes);
 app.use('/bundles', bundleRoutes);
+app.use('/training-records', trainingRecordRoutes);
 
 // Public site settings (categories, etc.)
 app.get('/settings/public', async (_req: Request, res: Response) => {

@@ -27,19 +27,17 @@ export const adminController = {
     try {
       const { title, description, category, thumbnailUrl, price, recommendedFor, inBundle } =
         req.body;
-      res
-        .status(201)
-        .json(
-          await adminService.createCourse({
-            title,
-            description,
-            category,
-            thumbnailUrl,
-            price,
-            recommendedFor,
-            inBundle,
-          }),
-        );
+      res.status(201).json(
+        await adminService.createCourse({
+          title,
+          description,
+          category,
+          thumbnailUrl,
+          price,
+          recommendedFor,
+          inBundle,
+        }),
+      );
     } catch (err) {
       next(err);
     }
@@ -92,17 +90,15 @@ export const adminController = {
   async addVideo(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { title, url, duration, order, section } = req.body;
-      res
-        .status(201)
-        .json(
-          await adminService.addVideo(req.params.courseId, {
-            title,
-            url,
-            duration,
-            order,
-            section,
-          }),
-        );
+      res.status(201).json(
+        await adminService.addVideo(req.params.courseId, {
+          title,
+          url,
+          duration,
+          order,
+          section,
+        }),
+      );
     } catch (err) {
       next(err);
     }
@@ -234,6 +230,17 @@ export const adminController = {
       if (!['USER', 'ADMIN'].includes(role))
         return res.status(400).json({ message: 'Invalid role' });
       res.json(await adminService.updateUserRole(req.params.userId, role));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteUser(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (req.params.userId === req.user!.id)
+        return res.status(400).json({ message: 'ไม่สามารถลบบัญชีของตัวเองได้' });
+      await adminService.deleteUser(req.params.userId);
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }

@@ -21,7 +21,10 @@ export const authRepository = {
   async findById(id: string) {
     return prisma.user.findUnique({ where: { id } });
   },
-  async updateById(id: string, data: { name?: string; hospital?: string; position?: string }) {
+  async updateById(
+    id: string,
+    data: { name?: string; hospital?: string; position?: string; avatarUrl?: string | null },
+  ) {
     return prisma.user.update({ where: { id }, data });
   },
   async findByHospcodeAndCid(hospcode: string, cid: string) {

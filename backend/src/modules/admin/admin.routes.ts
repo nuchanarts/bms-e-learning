@@ -38,6 +38,7 @@ router.get('/users', adminController.listUsers);
 router.put('/users/:userId/role', adminController.updateUserRole);
 router.put('/users/:userId/active', adminController.toggleUserActive);
 router.put('/users/:userId/profile', adminController.updateUserProfile);
+router.delete('/users/:userId', adminController.deleteUser);
 
 // Export
 router.post('/export/sheets', adminController.exportSheets);

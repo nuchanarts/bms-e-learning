@@ -30,13 +30,15 @@ model User {
   hospcode     String?       @db.VarChar(10)
   hospital     String?       @db.VarChar(255)
   position     String?       @db.VarChar(255)
+  avatarUrl    String?       @db.VarChar(512)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  progress     Progress[]
-  certificates Certificate[]
-  quizAttempts QuizAttempt[]
-  orders       Order[]
-  ratings      CourseRating[]
+  progress        Progress[]
+  certificates    Certificate[]
+  quizAttempts    QuizAttempt[]
+  orders          Order[]
+  ratings         CourseRating[]
+  trainingRecords TrainingRecord[]
 }
 
 model Course {
@@ -63,6 +65,7 @@ model Course {
   orders               Order[]
   ratings              CourseRating[]
   bundleCourses        BundleCourse[]
+  trainingRecords      TrainingRecord[]
   prerequisite         Course?         @relation("CoursePrereq", fields: [prerequisiteCourseId], references: [id])
   dependents           Course[]        @relation("CoursePrereq")
 }
@@ -250,4 +253,40 @@ model BundleCourse {
   course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@id([bundleId, courseId])
+}
+
+model TrainingRecord {
+  id            String    @id @default(uuid()) @db.VarChar(36)
+  userId        String    @db.VarChar(36)
+  courseId      String?   @db.VarChar(36)
+
+  recordDate    DateTime  @default(now())
+
+  // Triage counts
+  triageRed     Int       @default(0)
+  triageYellow  Int       @default(0)
+  triageGreen   Int       @default(0)
+
+  // Clinical record counts
+  vitalSigns    Int       @default(0)
+  cc            Int       @default(0)
+  hpi           Int       @default(0)
+  procedures    Int       @default(0)
+  labOrders     Int       @default(0)
+  xrayOrders    Int       @default(0)
+  medications   Int       @default(0)
+  billing       Int       @default(0)
+  otherExpenses Int       @default(0)
+
+  notes         String?   @db.Text
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course  Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([recordDate])
 }

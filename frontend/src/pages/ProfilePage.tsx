@@ -96,6 +96,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name ?? '');
   const [hospital, setHospital] = useState(user?.hospital ?? '');
   const [hospcode, setHospcode] = useState((user as any)?.hospcode ?? '');
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? '');
   const [positionSelect, setPositionSelect] = useState(
     ALL_POSITIONS.includes(user?.position ?? '') ? (user?.position ?? '') : 'อื่นๆ',
   );
@@ -194,6 +195,7 @@ export default function ProfilePage() {
         name: name.trim(),
         hospital: hospital.trim() || undefined,
         position: position.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || null,
       });
       setSuccess(true);
     } catch (err: any) {
@@ -315,6 +317,63 @@ export default function ProfilePage() {
               />
             </div>
           )}
+
+          {/* Avatar URL */}
+          <div>
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                display: 'block',
+                marginBottom: 6,
+              }}
+            >
+              รูปโปรไฟล์ (URL รูปภาพ)
+            </label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              {avatarUrl && (
+                <img
+                  src={avatarUrl}
+                  alt="preview"
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid var(--primary)',
+                    flexShrink: 0,
+                  }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <div style={{ flex: 1 }}>
+                <input
+                  type="url"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    border: '1.5px solid var(--border)',
+                    background: '#fff',
+                    fontSize: 13,
+                    fontFamily: 'inherit',
+                    color: 'var(--text-primary)',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  วาง URL รูปภาพจาก Google Drive, Imgur, หรือเว็บไซต์อื่น
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Name */}
           <div>

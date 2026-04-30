@@ -28,6 +28,7 @@ function formatUser(user: {
   cid?: string | null;
   hospital?: string | null;
   position?: string | null;
+  avatarUrl?: string | null;
 }) {
   return {
     id: user.id,
@@ -37,6 +38,7 @@ function formatUser(user: {
     cid: user.cid ?? null,
     hospital: user.hospital ?? null,
     position: user.position ?? null,
+    avatarUrl: user.avatarUrl ?? null,
   };
 }
 
@@ -115,7 +117,7 @@ export const authService = {
 
   async updateProfile(
     userId: string,
-    data: { name?: string; hospital?: string; position?: string },
+    data: { name?: string; hospital?: string; position?: string; avatarUrl?: string | null },
   ) {
     const user = await authRepository.updateById(userId, data);
     return formatUser(user);

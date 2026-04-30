@@ -3,6 +3,24 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme, THEMES } from '../../contexts/ThemeContext';
 
+const IconClipboard = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <line x1="9" y1="12" x2="15" y2="12" />
+    <line x1="9" y1="16" x2="13" y2="16" />
+  </svg>
+);
+
 // ── SVG Icons ──────────────────────────────────────────────
 const IconDashboard = () => (
   <svg
@@ -133,6 +151,7 @@ const BREADCRUMB: Record<string, string> = {
   '/dashboard': 'แดชบอร์ด',
   '/courses': 'คอร์สเรียน',
   '/certificates': 'ประกาศนียบัตร',
+  '/training-records': 'บันทึกผลอบรม',
   '/help': 'ช่วยเหลือ',
   '/admin': 'ผู้ดูแลระบบ',
   '/cart': 'ตะกร้าสินค้า',
@@ -161,6 +180,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const mainNav = [
     { to: '/dashboard', icon: <IconDashboard />, label: 'แดชบอร์ด' },
     { to: '/courses', icon: <IconBook />, label: 'คอร์สเรียน' },
+    { to: '/training-records', icon: <IconClipboard />, label: 'บันทึกผลอบรม' },
     { to: '/certificates', icon: <IconAward />, label: 'ประกาศนียบัตร' },
   ];
 
@@ -210,7 +230,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── User Profile ── */}
       <div className="sb-user">
-        <div className="sb-user-avatar">{userInitial}</div>
+        <div className="sb-user-avatar" style={{ padding: 0, overflow: 'hidden' }}>
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            userInitial
+          )}
+        </div>
         <div className="sb-user-info">
           <div className="sb-user-name">{user?.name}</div>
           <div className="sb-user-sub">{workplace}</div>
@@ -358,7 +391,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   borderRadius: 10,
                 }}
               >
-                <div className="topbar-avatar">{userInitial}</div>
+                <div className="topbar-avatar" style={{ padding: 0, overflow: 'hidden' }}>
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    userInitial
+                  )}
+                </div>
                 <div className="topbar-user-info">
                   <div className="topbar-user-name">{user?.name}</div>
                   <div className="topbar-user-role">

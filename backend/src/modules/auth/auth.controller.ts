@@ -78,8 +78,13 @@ export const authController = {
 
   async updateMe(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { name, hospital, position } = req.body;
-      const user = await authService.updateProfile(req.user!.id, { name, hospital, position });
+      const { name, hospital, position, avatarUrl } = req.body;
+      const user = await authService.updateProfile(req.user!.id, {
+        name,
+        hospital,
+        position,
+        avatarUrl: avatarUrl ?? undefined,
+      });
       res.json(user);
     } catch (err) {
       next(err);

@@ -4,6 +4,7 @@ import { certificateRepository } from './certificate.repository';
 import { progressRepository } from '../progress/progress.repository';
 import { courseRepository } from '../course/course.repository';
 import { quizService } from '../quiz/quiz.service';
+import { trainingRecordRepository } from '../training-record/training-record.repository';
 import prisma from '../../lib/prisma';
 
 const CERTS_DIR = path.join(process.cwd(), 'certificates');
@@ -353,6 +354,16 @@ export const certificateService = {
     const quizPassed = await quizService.isQuizPassed(userId, courseId);
     if (!quizPassed) {
       throw Object.assign(new Error('Quiz not passed'), { status: 403 });
+    }
+
+    const hasTrainingRecord = await trainingRecordRepository.existsForUserAndCourse(
+      userId,
+      courseId,
+    );
+    if (!hasTrainingRecord) {
+      throw Object.assign(new Error('กรุณาบันทึกผลการปฏิบัติหลังอบรมก่อนรับใบประกาศนียบัตร'), {
+        status: 403,
+      });
     }
 
     if (!fs.existsSync(CERTS_DIR)) fs.mkdirSync(CERTS_DIR, { recursive: true });

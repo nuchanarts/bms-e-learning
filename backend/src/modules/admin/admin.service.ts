@@ -243,6 +243,10 @@ export const adminService = {
     return prisma.user.update({ where: { id: userId }, data });
   },
 
+  async deleteUser(userId: string) {
+    return prisma.user.delete({ where: { id: userId } });
+  },
+
   // Activity Feed — last 30 days, merged & sorted
   async getActivityFeed() {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
