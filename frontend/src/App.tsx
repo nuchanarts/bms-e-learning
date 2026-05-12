@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { CartProvider } from './contexts/CartContext';
@@ -29,7 +29,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <HashRouter>
       <ThemeProvider>
         <LanguageProvider>
           <AuthProvider>
@@ -117,6 +117,6 @@ export default function App() {
           </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
