@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage, LANGUAGES } from '../../contexts/LanguageContext';
+import api from '../../lib/api';
 
 const REMEMBER_KEY = 'bgs_remember_email';
 
@@ -9,10 +10,13 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
+  const [loginTab, setLoginTab] = useState<'email' | 'cid'>('email');
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem(REMEMBER_KEY));
+  const [cidHospcode, setCidHospcode] = useState('');
+  const [cidValue, setCidValue] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -42,6 +46,24 @@ export default function LoginPage() {
       navigate('/dashboard');
     } catch {
       setError(t.login_error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCidSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await api.post<{ token: string }>('/auth/login-by-cid', {
+        hospcode: cidHospcode,
+        cid: cidValue,
+      });
+      localStorage.setItem('token', data.token);
+      window.location.href = '/dashboard';
+    } catch {
+      setError('รหัส รพ.สต. หรือเลขบัตรประชาชนไม่ถูกต้อง');
     } finally {
       setLoading(false);
     }
@@ -230,128 +252,222 @@ export default function LoginPage() {
           <h2 className="auth-form-title">{t.login_welcome}</h2>
           <p className="auth-form-sub">{t.login_subtitle}</p>
 
+          {/* Tab switcher */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 0,
+              marginBottom: 20,
+              borderRadius: 10,
+              overflow: 'hidden',
+              border: '1.5px solid var(--border)',
+            }}
+          >
+            {(['email', 'cid'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setLoginTab(tab);
+                  setError('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '9px 4px',
+                  border: 'none',
+                  fontFamily: 'inherit',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: loginTab === tab ? 'var(--primary)' : 'transparent',
+                  color: loginTab === tab ? '#fff' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {tab === 'email' ? '📧 อีเมล / รหัสผ่าน' : '🏥 รหัส รพ.สต. + บัตร ปชช.'}
+              </button>
+            ))}
+          </div>
+
           {error && (
             <div className="alert-error" role="alert">
               <span>⚠️</span> {error}
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-          >
-            <div className="form-group">
-              <label className="form-label" htmlFor="email">
-                {t.login_email}
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                className="form-input"
-                placeholder="example@bgs.local"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">
-                {t.login_password}
-              </label>
-              <div style={{ position: 'relative' }}>
+          {loginTab === 'cid' && (
+            <form
+              onSubmit={handleCidSubmit}
+              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+            >
+              <div className="form-group">
+                <label className="form-label">รหัสสถานพยาบาล (5 หลัก)</label>
                 <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
                   className="form-input"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="เช่น 10001"
+                  value={cidHospcode}
+                  onChange={(e) => setCidHospcode(e.target.value.replace(/\D/g, '').slice(0, 5))}
                   required
-                  autoComplete="current-password"
-                  style={{ paddingRight: 40 }}
+                  maxLength={5}
+                  inputMode="numeric"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 16,
-                    color: 'var(--text-muted)',
-                    padding: 2,
-                    lineHeight: 1,
-                  }}
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
               </div>
-            </div>
+              <div className="form-group">
+                <label className="form-label">เลขบัตรประชาชน (13 หลัก)</label>
+                <input
+                  className="form-input"
+                  placeholder="เช่น 1234567890123"
+                  value={cidValue}
+                  onChange={(e) => setCidValue(e.target.value.replace(/\D/g, '').slice(0, 13))}
+                  required
+                  maxLength={13}
+                  inputMode="numeric"
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={loading || cidHospcode.length !== 5 || cidValue.length !== 13}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />{' '}
+                    กำลังเข้าสู่ระบบ...
+                  </>
+                ) : (
+                  'เข้าสู่ระบบ'
+                )}
+              </button>
+            </form>
+          )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label
+          {loginTab === 'email' && (
+            <>
+              <form
+                onSubmit={handleSubmit}
+                style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+              >
+                <div className="form-group">
+                  <label className="form-label" htmlFor="email">
+                    {t.login_email}
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    className="form-input"
+                    placeholder="example@bgs.local"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="password">
+                    {t.login_password}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                      style={{ paddingRight: 40 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        color: 'var(--text-muted)',
+                        padding: 2,
+                        lineHeight: 1,
+                      }}
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    >
+                      {showPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      style={{
+                        width: 15,
+                        height: 15,
+                        cursor: 'pointer',
+                        accentColor: 'var(--primary)',
+                      }}
+                    />
+                    {t.login_remember}
+                  </label>
+                  <Link to="/forgot-password" className="auth-link" style={{ fontSize: 13 }}>
+                    ลืมรหัสผ่าน?
+                  </Link>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={loading}
+                  style={{ marginTop: 4 }}
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                      {t.login_loading}
+                    </>
+                  ) : (
+                    t.login_submit
+                  )}
+                </button>
+              </form>
+
+              <p
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
+                  textAlign: 'center',
+                  marginTop: 20,
                   fontSize: 13,
                   color: 'var(--text-muted)',
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  style={{
-                    width: 15,
-                    height: 15,
-                    cursor: 'pointer',
-                    accentColor: 'var(--primary)',
-                  }}
-                />
-                {t.login_remember}
-              </label>
-              <Link to="/forgot-password" className="auth-link" style={{ fontSize: 13 }}>
-                ลืมรหัสผ่าน?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading}
-              style={{ marginTop: 4 }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
-                  {t.login_loading}
-                </>
-              ) : (
-                t.login_submit
-              )}
-            </button>
-          </form>
-
-          <p
-            style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-muted)' }}
-          >
-            {t.login_no_account}{' '}
-            <Link to="/register" className="auth-link">
-              {t.login_register_link}
-            </Link>
-          </p>
+                {t.login_no_account}{' '}
+                <Link to="/register" className="auth-link">
+                  {t.login_register_link}
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

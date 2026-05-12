@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import TrainingRecordReviewPage from './TrainingRecordReviewPage';
+import { bundleService, type Bundle } from '../../services/bundleService';
 
 interface Analytics {
   totalUsers: number;
@@ -63,6 +64,7 @@ interface CourseItem {
   category?: string;
   thumbnailUrl?: string | null;
   isActive: boolean;
+  isFeatured: boolean;
   order: number;
   price?: number | null;
   requireTrainingRecord: boolean;
@@ -439,6 +441,15 @@ export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('courses');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [courses, setCourses] = useState<CourseItem[]>([]);
+  const [bundles, setBundles] = useState<Bundle[]>([]);
+  const [bundleForm, setBundleForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    courseIds: [] as string[],
+  });
+  const [bundleSaving, setBundleSaving] = useState(false);
+  const [bundleMsg, setBundleMsg] = useState('');
   const [users, setUsers] = useState<UserItem[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -548,14 +559,16 @@ export default function AdminPage() {
   const [exportingExcel, setExportingExcel] = useState(false);
 
   const loadData = async () => {
-    const [a, c, setRes] = await Promise.all([
+    const [a, c, setRes, b] = await Promise.all([
       api.get<Analytics>('/admin/analytics'),
       api.get<CourseItem[]>('/courses'),
       api.get<SiteSettings>('/admin/settings'),
+      bundleService.listAll().catch(() => [] as Bundle[]),
     ]);
     setAnalytics(a.data);
     setCourses(c.data);
     setSiteSettings(setRes.data);
+    setBundles(b);
   };
 
   useEffect(() => {
@@ -2483,6 +2496,9 @@ export default function AdminPage() {
                                 whiteSpace: 'nowrap',
                               }}
                             >
+                              {c.isFeatured && (
+                                <span style={{ color: '#F59E0B', marginRight: 4 }}>⭐</span>
+                              )}
                               {c.title}
                             </div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -2554,6 +2570,36 @@ export default function AdminPage() {
                             }}
                           >
                             {expandedCourseId === c.id ? '▲ วิดีโอ' : '▼ วิดีโอ'}
+                          </button>
+                          <button
+                            title={c.isFeatured ? 'ยกเลิกแนะนำ' : 'ตั้งเป็นคอร์สแนะนำ'}
+                            onClick={async () => {
+                              try {
+                                await api.put(`/admin/courses/${c.id}/featured`);
+                                setCourses((prev) =>
+                                  prev.map((x) =>
+                                    x.id === c.id ? { ...x, isFeatured: !x.isFeatured } : x,
+                                  ),
+                                );
+                              } catch {
+                                alert('เกิดข้อผิดพลาด');
+                              }
+                            }}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: 8,
+                              border: `1px solid ${c.isFeatured ? 'rgba(245,158,11,0.4)' : 'rgba(245,158,11,0.2)'}`,
+                              background: c.isFeatured
+                                ? 'rgba(245,158,11,0.15)'
+                                : 'rgba(245,158,11,0.06)',
+                              color: '#D97706',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            {c.isFeatured ? '⭐ แนะนำ' : '☆ แนะนำ'}
                           </button>
                           <button
                             onClick={() => handleEdit(c)}
@@ -3526,6 +3572,195 @@ export default function AdminPage() {
                 )}
               </div>
             )}
+
+          {/* ── Bundle Management ── */}
+          <div className="card" style={{ padding: 20, marginTop: 24 }}>
+            <h3
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: 14,
+              }}
+            >
+              🎁 จัดการแพ็กเกจคอร์ส
+            </h3>
+            {bundleMsg && (
+              <div
+                className={bundleMsg.includes('สำเร็จ') ? 'alert-success' : 'alert-error'}
+                style={{ marginBottom: 12 }}
+              >
+                {bundleMsg}
+              </div>
+            )}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (bundleForm.courseIds.length < 2) {
+                  setBundleMsg('เลือกคอร์สอย่างน้อย 2 คอร์ส');
+                  return;
+                }
+                setBundleSaving(true);
+                try {
+                  const b = await bundleService.create({
+                    name: bundleForm.name,
+                    description: bundleForm.description || undefined,
+                    price: parseFloat(bundleForm.price),
+                    courseIds: bundleForm.courseIds,
+                  });
+                  setBundles((prev) => [b, ...prev]);
+                  setBundleForm({ name: '', description: '', price: '', courseIds: [] });
+                  setBundleMsg('สร้างแพ็กเกจสำเร็จ!');
+                  setTimeout(() => setBundleMsg(''), 3000);
+                } catch (err: any) {
+                  setBundleMsg(err?.response?.data?.message ?? 'เกิดข้อผิดพลาด');
+                } finally {
+                  setBundleSaving(false);
+                }
+              }}
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}
+            >
+              <input
+                className="form-input"
+                placeholder="ชื่อแพ็กเกจ *"
+                value={bundleForm.name}
+                onChange={(e) => setBundleForm((f) => ({ ...f, name: e.target.value }))}
+                required
+              />
+              <input
+                className="form-input"
+                placeholder="ราคาแพ็กเกจ (บาท) *"
+                type="number"
+                min="0"
+                step="0.01"
+                value={bundleForm.price}
+                onChange={(e) => setBundleForm((f) => ({ ...f, price: e.target.value }))}
+                required
+              />
+              <input
+                className="form-input"
+                placeholder="คำอธิบาย (ไม่บังคับ)"
+                value={bundleForm.description}
+                onChange={(e) => setBundleForm((f) => ({ ...f, description: e.target.value }))}
+                style={{ gridColumn: '1 / -1' }}
+              />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    marginBottom: 6,
+                  }}
+                >
+                  เลือกคอร์ส (อย่างน้อย 2 คอร์ส)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {courses
+                    .filter((c) => c.isActive)
+                    .map((c) => {
+                      const sel = bundleForm.courseIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() =>
+                            setBundleForm((f) => ({
+                              ...f,
+                              courseIds: sel
+                                ? f.courseIds.filter((x) => x !== c.id)
+                                : [...f.courseIds, c.id],
+                            }))
+                          }
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: 20,
+                            border: `1.5px solid ${sel ? 'var(--primary)' : 'var(--border)'}`,
+                            background: sel ? 'rgba(123,104,238,0.12)' : 'transparent',
+                            color: sel ? 'var(--primary)' : 'var(--text-muted)',
+                            fontSize: 12,
+                            fontWeight: sel ? 700 : 400,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          {sel ? '✓ ' : ''}
+                          {c.title}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={bundleSaving}
+                style={{ gridColumn: '1 / -1' }}
+              >
+                {bundleSaving ? 'กำลังบันทึก...' : '+ สร้างแพ็กเกจ'}
+              </button>
+            </form>
+            {bundles.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {bundles.map((b) => (
+                  <div
+                    key={b.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      background: b.isActive ? 'var(--card)' : 'var(--bg-secondary)',
+                      opacity: b.isActive ? 1 : 0.6,
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {b.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+                        {b.courses.length} คอร์ส · ฿{b.price.toLocaleString()}
+                      </span>
+                      {!b.isActive && (
+                        <span style={{ fontSize: 10, color: '#DC2626', marginLeft: 6 }}>
+                          ปิดใช้งาน
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await bundleService.deactivate(b.id);
+                          setBundles((prev) =>
+                            prev.map((x) => (x.id === b.id ? { ...x, isActive: false } : x)),
+                          );
+                        } catch {
+                          alert('เกิดข้อผิดพลาด');
+                        }
+                      }}
+                      disabled={!b.isActive}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        background: 'rgba(239,68,68,0.06)',
+                        color: '#DC2626',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: b.isActive ? 'pointer' : 'default',
+                        fontFamily: 'inherit',
+                        opacity: b.isActive ? 1 : 0.4,
+                      }}
+                    >
+                      ปิดใช้งาน
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

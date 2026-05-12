@@ -5,9 +5,11 @@ import { progressService, type ProgressRecord } from '../../services/progressSer
 import { certificateService } from '../../services/certificateService';
 import { quizService } from '../../services/quizService';
 import { paymentService } from '../../services/paymentService';
+import { ratingService, type RatingsResponse } from '../../services/ratingService';
 import { VideoPlayer } from '../../components/ui/VideoPlayer';
 import { QuizModal } from '../../components/ui/QuizModal';
 import { PaymentModal } from '../../components/ui/PaymentModal';
+import StarRating from '../../components/ui/StarRating';
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +25,10 @@ export default function CourseDetailPage() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [showPayment, setShowPayment] = useState(false);
+  const [ratings, setRatings] = useState<RatingsResponse | null>(null);
+  const [myRating, setMyRating] = useState(0);
+  const [myReview, setMyReview] = useState('');
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -31,11 +37,18 @@ export default function CourseDetailPage() {
       progressService.getForCourse(id),
       quizService.getResult(id),
       paymentService.checkAccess(id).catch(() => true), // default grant on error
+      ratingService.getRatings(id).catch(() => null),
+      ratingService.getMyRating(id).catch(() => null),
     ])
-      .then(([c, p, qr, access]) => {
+      .then(([c, p, qr, access, rat, myRat]) => {
         setCourse(c);
         setProgress(p);
         setHasAccess(access);
+        if (rat) setRatings(rat);
+        if (myRat) {
+          setMyRating(myRat.rating);
+          setMyReview(myRat.review ?? '');
+        }
         const resumeVideo = resumeVideoId ? c.videos.find((v) => v.id === resumeVideoId) : null;
         setSelectedVideo(resumeVideo ?? c.videos[0] ?? null);
         if (c.videos.length > 0 && p.filter((x) => x.completed).length === c.videos.length)
@@ -582,6 +595,118 @@ export default function CourseDetailPage() {
             setHasAccess(true);
           }}
         />
+      )}
+
+      {/* ── Rating & Reviews ── */}
+      {id && (
+        <div className="card" style={{ padding: 24, marginTop: 24 }}>
+          <h3
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              marginBottom: 16,
+            }}
+          >
+            ⭐ คะแนนและรีวิว
+            {ratings && ratings.ratingCount > 0 && (
+              <span
+                style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}
+              >
+                {ratings.avgRating} / 5 ({ratings.ratingCount} รีวิว)
+              </span>
+            )}
+          </h3>
+
+          {/* Submit form — only if completed */}
+          {courseCompleted && (
+            <div
+              style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: 10,
+                padding: 16,
+                marginBottom: 20,
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  marginBottom: 10,
+                }}
+              >
+                {myRating ? 'แก้ไขรีวิวของคุณ' : 'ให้คะแนนคอร์สนี้'}
+              </p>
+              <StarRating value={myRating} onChange={setMyRating} size={28} />
+              <textarea
+                className="form-input"
+                placeholder="เขียนรีวิว (ไม่บังคับ, ไม่เกิน 500 ตัวอักษร)"
+                value={myReview}
+                onChange={(e) => setMyReview(e.target.value)}
+                maxLength={500}
+                rows={3}
+                style={{ marginTop: 10, resize: 'vertical' }}
+              />
+              <button
+                className="btn-primary"
+                disabled={!myRating || ratingSubmitting}
+                style={{ marginTop: 10 }}
+                onClick={async () => {
+                  if (!myRating) return;
+                  setRatingSubmitting(true);
+                  try {
+                    await ratingService.submit(id, myRating, myReview || undefined);
+                    const updated = await ratingService.getRatings(id);
+                    setRatings(updated);
+                  } finally {
+                    setRatingSubmitting(false);
+                  }
+                }}
+              >
+                {ratingSubmitting ? 'กำลังบันทึก...' : myRating ? 'บันทึกรีวิว' : 'เลือกคะแนนก่อน'}
+              </button>
+            </div>
+          )}
+
+          {/* Reviews list */}
+          {ratings && ratings.reviews.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {ratings.reviews.map((r) => (
+                <div
+                  key={r.id}
+                  style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <StarRating value={r.rating} readonly size={16} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {r.userName}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                      {new Date(r.createdAt).toLocaleDateString('th-TH')}
+                    </span>
+                  </div>
+                  {r.review && (
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                      {r.review}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                padding: '20px 0',
+              }}
+            >
+              ยังไม่มีรีวิว เรียนให้จบแล้วมาเป็นคนแรกที่รีวิว!
+            </p>
+          )}
+        </div>
       )}
     </>
   );

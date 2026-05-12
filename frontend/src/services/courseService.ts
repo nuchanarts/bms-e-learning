@@ -23,6 +23,11 @@ export interface Course {
   category?: string | null;
   thumbnailUrl?: string | null;
   price?: number | null;
+  isFeatured?: boolean;
+  enrollCount: number;
+  avgRating: number | null;
+  ratingCount: number;
+  isNew?: boolean;
   videos: Video[];
   documents: CourseDocument[];
 }
