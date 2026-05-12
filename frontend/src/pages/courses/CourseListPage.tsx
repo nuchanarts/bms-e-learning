@@ -230,8 +230,6 @@ export default function CourseListPage() {
           </h2>
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
             {featured.map((course, i) => {
-              const inCart = has(course.id);
-              const completed = completedCourseIds.has(course.id);
               return (
                 <div
                   key={course.id}

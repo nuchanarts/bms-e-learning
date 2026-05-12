@@ -120,7 +120,7 @@ function useScreenCaptureBlock(onDetect: () => void) {
     const original = navigator.mediaDevices.getDisplayMedia?.bind(navigator.mediaDevices);
     if (!original) return;
     (navigator.mediaDevices as any).getDisplayMedia = async (
-      constraints?: DisplayMediaStreamConstraints,
+      constraints?: MediaStreamConstraints,
     ) => {
       onDetect();
       return original(constraints);

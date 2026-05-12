@@ -643,7 +643,7 @@ export default function AdminPage() {
   const handleToggleExpand = (id: string) => {
     setExpandedCourseId((prev) => (prev === id ? null : id));
     if (editingId) handleCancelEdit();
-    setVideoForm({ title: '', url: '', duration: '', order: '' });
+    setVideoForm({ title: '', url: '', duration: '', order: '', section: '' });
     setDocForm({ title: '', url: '', order: '' });
     setQuizCourseId(null);
   };
@@ -1101,6 +1101,8 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'training' && <TrainingRecordReviewPage />}
 
       {tab === 'users' && (
         <div>
@@ -1581,12 +1583,15 @@ export default function AdminPage() {
                         marginBottom: 2,
                       }}
                     >
-                      {icon} {(siteSettings as Record<string, string>)[`${key}_label`] || key}
+                      {icon}{' '}
+                      {(siteSettings as unknown as Record<string, string>)[`${key}_label`] || key}
                     </div>
                     <input
                       className="form-input"
                       placeholder="ชื่อหัวข้อ (เช่น โทรศัพท์, Email)"
-                      value={(siteSettings as Record<string, string>)[`${key}_label`] ?? ''}
+                      value={
+                        (siteSettings as unknown as Record<string, string>)[`${key}_label`] ?? ''
+                      }
                       onChange={(e) =>
                         setSiteSettings((s) => ({ ...s, [`${key}_label`]: e.target.value }))
                       }
@@ -1595,7 +1600,7 @@ export default function AdminPage() {
                     <input
                       className="form-input"
                       placeholder={valuePlaceholder}
-                      value={(siteSettings as Record<string, string>)[key] ?? ''}
+                      value={(siteSettings as unknown as Record<string, string>)[key] ?? ''}
                       onChange={(e) => setSiteSettings((s) => ({ ...s, [key]: e.target.value }))}
                       style={{ fontSize: 12, padding: '7px 10px' }}
                     />
@@ -1603,7 +1608,9 @@ export default function AdminPage() {
                       <input
                         className="form-input"
                         placeholder={detailPlaceholder}
-                        value={(siteSettings as Record<string, string>)[`${key}_detail`] ?? ''}
+                        value={
+                          (siteSettings as unknown as Record<string, string>)[`${key}_detail`] ?? ''
+                        }
                         onChange={(e) =>
                           setSiteSettings((s) => ({ ...s, [`${key}_detail`]: e.target.value }))
                         }
@@ -1777,7 +1784,7 @@ export default function AdminPage() {
                     <input
                       className="form-input"
                       placeholder={placeholder}
-                      value={(siteSettings as Record<string, string>)[key] ?? ''}
+                      value={(siteSettings as unknown as Record<string, string>)[key] ?? ''}
                       onChange={(e) => setSiteSettings((s) => ({ ...s, [key]: e.target.value }))}
                       style={{ fontSize: 12, padding: '7px 10px' }}
                     />
