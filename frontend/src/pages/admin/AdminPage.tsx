@@ -147,6 +147,7 @@ interface HospItem {
   province: string;
   district: string;
   isCustom: boolean;
+  isActive: boolean;
 }
 
 function HospitalManager() {
