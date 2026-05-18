@@ -6,16 +6,36 @@ export interface Video {
   url: string;
   duration: number;
   order: number;
+  section?: string | null;
+}
+
+export interface CourseDocument {
+  id: string;
+  title: string;
+  url: string;
+  order: number;
 }
 
 export interface Course {
   id: string;
   title: string;
   description: string;
+  category?: string | null;
+  thumbnailUrl?: string | null;
+  price?: number | null;
+  isFeatured?: boolean;
+  enrollCount: number;
+  avgRating: number | null;
+  ratingCount: number;
+  isNew?: boolean;
   videos: Video[];
+  documents: CourseDocument[];
 }
 
 export const courseService = {
-  list: () => api.get<Course[]>('/courses').then((r) => r.data),
+  list: (category?: string) =>
+    api
+      .get<Course[]>('/courses', { params: category ? { category } : undefined })
+      .then((r) => r.data),
   getById: (id: string) => api.get<Course>(`/courses/${id}`).then((r) => r.data),
 };

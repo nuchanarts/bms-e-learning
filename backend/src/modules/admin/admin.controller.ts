@@ -2,6 +2,9 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { adminService } from './admin.service';
 import { sheetsService } from './sheets.service';
+import { excelService } from './excel.service';
+import { onlineTracker } from '../../lib/onlineTracker';
+import { paymentService } from '../payment/payment.service';
 
 export const adminController = {
   async getAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
@@ -12,10 +15,29 @@ export const adminController = {
     }
   },
 
+  async getAllCourses(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getAllCourses());
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async createCourse(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { title, description } = req.body;
-      res.status(201).json(await adminService.createCourse({ title, description }));
+      const { title, description, category, thumbnailUrl, price, recommendedFor, inBundle } =
+        req.body;
+      res.status(201).json(
+        await adminService.createCourse({
+          title,
+          description,
+          category,
+          thumbnailUrl,
+          price,
+          recommendedFor,
+          inBundle,
+        }),
+      );
     } catch (err) {
       next(err);
     }
@@ -38,12 +60,62 @@ export const adminController = {
     }
   },
 
+  async toggleFeatured(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.toggleFeatured(req.params.id));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async toggleRequireTrainingRecord(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { required } = req.body;
+      res.json(await adminService.toggleRequireTrainingRecord(req.params.id, Boolean(required)));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteRating(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { ratingService } = await import('../rating/rating.service');
+      await ratingService.deleteRating(req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async reorderCourses(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.reorderCourses(req.body.items);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async addVideo(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { title, url, duration, order } = req.body;
-      res
-        .status(201)
-        .json(await adminService.addVideo(req.params.courseId, { title, url, duration, order }));
+      const { title, url, duration, order, section } = req.body;
+      res.status(201).json(
+        await adminService.addVideo(req.params.courseId, {
+          title,
+          url,
+          duration,
+          order,
+          section,
+        }),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateVideo(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.updateVideo(req.params.videoId, req.body));
     } catch (err) {
       next(err);
     }
@@ -58,10 +130,215 @@ export const adminController = {
     }
   },
 
+  // Quiz
+  async getQuizQuestions(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getQuizQuestions(req.params.courseId));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createQuizQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { text, options, correctIndex, order } = req.body;
+      res.status(201).json(
+        await adminService.createQuizQuestion(req.params.courseId, {
+          text,
+          options,
+          correctIndex,
+          order,
+        }),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateQuizQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.updateQuizQuestion(req.params.questionId, req.body));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteQuizQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.deleteQuizQuestion(req.params.questionId);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Documents
+  async addDocument(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { title, url, order } = req.body;
+      res
+        .status(201)
+        .json(await adminService.addDocument(req.params.courseId, { title, url, order }));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteDocument(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.deleteDocument(req.params.documentId);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Export
   async exportSheets(_req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const result = await sheetsService.exportKPI();
+      res.json(await sheetsService.exportKPI());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async exportExcel(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const buffer = await excelService.generateLearnerReport();
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', 'attachment; filename="learners.xlsx"');
+      res.send(buffer);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async listUsers(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const search = req.query.search as string | undefined;
+      const users = await adminService.getUsers(search);
+      const onlineAll = onlineTracker.getAll();
+      const result = users.map((u) => ({
+        ...u,
+        isOnline: onlineTracker.isOnline(u.id),
+        certCount: u._count.certificates,
+        progressCount: u._count.progress,
+      }));
       res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateUserRole(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { role } = req.body;
+      if (!['USER', 'ADMIN'].includes(role))
+        return res.status(400).json({ message: 'Invalid role' });
+      res.json(await adminService.updateUserRole(req.params.userId, role));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteUser(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (req.params.userId === req.user!.id)
+        return res.status(400).json({ message: 'ไม่สามารถลบบัญชีของตัวเองได้' });
+      await adminService.deleteUser(req.params.userId);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async toggleUserActive(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { isActive } = req.body;
+      res.json(await adminService.toggleUserActive(req.params.userId, Boolean(isActive)));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateUserProfile(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { name, hospital, position } = req.body;
+      res.json(
+        await adminService.updateUserProfile(req.params.userId, { name, hospital, position }),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async listOrders(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await paymentService.listAllOrders());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getActivityFeed(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getActivityFeed());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Announcements
+  async listAnnouncements(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.listAnnouncements());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { title, body, pinned } = req.body;
+      res.status(201).json(await adminService.createAnnouncement({ title, body, pinned }));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.updateAnnouncement(req.params.id, req.body));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteAnnouncement(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.deleteAnnouncement(req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Site Settings
+  async getSiteSettings(_req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      res.json(await adminService.getSiteSettings());
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateSiteSettings(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await adminService.updateSiteSettings(req.body);
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }
